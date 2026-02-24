@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RHMS System Builder</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#0d1117;--panel:#161b22;--panel2:#1f2937;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--accent:#00e5a0;--accent2:#00b37a;--green:#39d353;--orange:#f0883e;--red:#ff6e6e;--code-bg:#0a0e14;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* ── TOP BAR ── */
+#topbar{height:44px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 10px;gap:6px;z-index:1000;flex-shrink:0}
+.logo{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:13px;color:var(--accent);letter-spacing:.08em;margin-right:6px}
+.logo span{color:var(--text2)}
+.top-btn{height:28px;padding:0 9px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:11px;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:4px;white-space:nowrap}
+.top-btn:hover{border-color:var(--accent);color:var(--accent)}
+.top-btn.active{background:rgba(0,229,160,.1);border-color:var(--accent);color:var(--accent)}
+.top-btn.primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:600}
+.top-btn.primary:hover{background:var(--accent2)}
+.top-btn.danger{color:var(--red);border-color:var(--red)}
+.top-btn.danger:hover{background:rgba(255,110,110,.1)}
+.top-sep{width:1px;height:22px;background:var(--border);flex-shrink:0}
+.spacer{flex:1}
+.tb-input{background:var(--panel2);border:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:3px 6px;border-radius:4px}
+.tb-input:focus{outline:none;border-color:var(--accent)}
+.tb-label{font-size:11px;color:var(--text2);white-space:nowrap}
+
+/* ── MAIN LAYOUT ── */
+#main{display:flex;flex:1;overflow:hidden}
+
+/* ── LEFT TOOLBAR ── */
+#toolbar{width:66px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:8px 0 6px;gap:2px;z-index:500;flex-shrink:0;overflow-y:auto}
+.tsl{font-size:8px;color:var(--text2);letter-spacing:.1em;text-transform:uppercase;width:100%;text-align:center;padding:5px 0 2px}
+.tool-btn{width:52px;height:48px;border-radius:6px;border:1px solid transparent;background:transparent;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:all .15s;flex-shrink:0}
+.tool-btn svg{width:22px;height:22px}
+.tool-btn:hover{background:var(--panel2);border-color:var(--border)}
+.tool-btn.active{background:rgba(0,229,160,.1);border-color:var(--accent)}
+.tlabel{font-size:8px;color:var(--text2);letter-spacing:.04em;text-transform:uppercase}
+.tool-btn.active .tlabel{color:var(--accent)}
+.tsep{width:38px;height:1px;background:var(--border);margin:2px 0;flex-shrink:0}
+.tb-spacer{flex:1}
+
+/* ── MAP ── */
+#map-container{flex:1;position:relative;overflow:hidden}
+#map{width:100%;height:100%}
+#map-hint{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(13,17,23,.85);border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:11px;color:var(--text2);pointer-events:none;z-index:1000;backdrop-filter:blur(6px);font-family:'IBM Plex Mono',monospace;transition:opacity .3s;white-space:nowrap}
+#map-hint.hidden{opacity:0}
+#connect-overlay{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,179,122,.15);border:1px solid var(--accent);border-radius:6px;padding:7px 14px;font-size:12px;color:var(--accent);z-index:1000;pointer-events:none;backdrop-filter:blur(6px);font-family:'IBM Plex Mono',monospace;display:none}
+
+/* ── RIGHT PANEL ── */
+#right-panel{width:340px;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.panel-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.panel-tab{flex:1;padding:9px 2px;font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text2);border:none;background:transparent;cursor:pointer;letter-spacing:.04em;border-bottom:2px solid transparent;transition:all .15s;text-transform:uppercase}
+.panel-tab:hover{color:var(--text)}
+.panel-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{display:none;height:100%;flex-direction:column}
+.tab-content.active{display:flex}
+.panel-body{flex:1;overflow-y:auto;overflow-x:hidden}
+.panel-body::-webkit-scrollbar{width:4px}
+.panel-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ── PROPS ── */
+#props-panel{padding:12px}
+.props-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:var(--text2);font-size:12px;gap:8px;text-align:center}
+.props-empty svg{opacity:.3}
+.prop-group{margin-bottom:14px}
+.pgl{font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:var(--text2);margin-bottom:7px;font-family:'IBM Plex Mono',monospace;display:flex;align-items:center;gap:6px}
+.badge{font-size:8px;padding:1px 6px;border-radius:10px}
+.badge-routing{background:rgba(41,182,246,.15);color:#29b6f6}
+.badge-opt{background:rgba(139,148,158,.15);color:var(--text2)}
+.badge-ts{background:rgba(0,229,160,.12);color:var(--accent)}
+.badge-loss{background:rgba(240,136,62,.15);color:var(--orange)}
+.prop-row{margin-bottom:8px}
+.prop-label{font-size:11px;color:var(--text2);margin-bottom:3px;display:flex;justify-content:space-between;align-items:center;gap:4px}
+.prop-label-left{display:flex;align-items:center;gap:5px;flex:1;min-width:0}
+.req{color:var(--orange);font-size:9px;flex-shrink:0}
+.opt{color:var(--text2);font-size:9px;flex-shrink:0}
+.prop-input,.prop-select{width:100%;background:var(--code-bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;padding:6px 8px;transition:border-color .15s}
+.prop-input:focus,.prop-select:focus{outline:none;border-color:var(--accent)}
+.prop-select option{background:var(--panel2)}
+.prop-hint{font-size:10px;color:var(--text2);margin-top:3px;font-family:'IBM Plex Mono',monospace;line-height:1.4}
+.dual-input{display:flex;gap:6px}
+.dual-input .prop-input{flex:1}
+.cond-section{overflow:hidden;transition:max-height .35s ease,opacity .25s;max-height:3000px;opacity:1}
+.cond-section.hidden{max-height:0;opacity:0;pointer-events:none}
+.node-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.node-type-badge{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.node-id{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2)}
+.node-title{font-size:14px;font-weight:500}
+
+/* ── HELP TOOLTIP ── */
+.hq{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;border:1px solid var(--border);color:var(--text2);font-size:9px;font-family:'IBM Plex Mono',monospace;cursor:pointer;flex-shrink:0;transition:all .15s;line-height:1;background:transparent;padding:0;position:relative}
+.hq:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,229,160,.08)}
+
+/* ── MATRIX WIDGET ── */
+.matrix-widget{background:var(--code-bg);border:1px solid var(--border);border-radius:5px;overflow:hidden}
+.mw-header{display:grid;grid-template-columns:1fr 1fr 22px;background:var(--panel2);border-bottom:1px solid var(--border)}
+.mw-header span{font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text2);padding:4px 7px;text-transform:uppercase;letter-spacing:.05em}
+.mw-rows{max-height:150px;overflow-y:auto}
+.mw-rows::-webkit-scrollbar{width:3px}
+.mw-rows::-webkit-scrollbar-thumb{background:var(--border)}
+.mw-row{display:grid;grid-template-columns:1fr 1fr 22px;border-bottom:1px solid var(--border)}
+.mw-row:last-child{border-bottom:none}
+.mw-row input{background:transparent;border:none;border-right:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 7px;width:100%;outline:none}
+.mw-row input:focus{background:rgba(0,229,160,.05)}
+.mw-row .dr{width:22px;background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:color .15s}
+.mw-row .dr:hover{color:var(--red)}
+.mw-empty{padding:8px;text-align:center;font-size:10px;color:var(--text2);font-family:'IBM Plex Mono',monospace}
+.mw-actions{display:flex;gap:5px;padding:5px 7px;border-top:1px solid var(--border);align-items:center;flex-wrap:wrap}
+.act-btn{height:22px;padding:0 7px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:10px;font-family:'IBM Plex Mono',monospace;cursor:pointer;transition:all .15s;white-space:nowrap}
+.act-btn:hover{border-color:var(--accent);color:var(--accent)}
+.imp-label{height:22px;padding:0 7px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:10px;font-family:'IBM Plex Mono',monospace;cursor:pointer;transition:all .15s;display:flex;align-items:center;white-space:nowrap}
+.imp-label:hover{border-color:var(--green);color:var(--green)}
+.imp-label input{display:none}
+.row-count{margin-left:auto;font-size:9px;color:var(--text2);font-family:'IBM Plex Mono',monospace}
+
+/* ── TIME SERIES WIDGET ── */
+.ts-widget{background:var(--code-bg);border:1px solid var(--border);border-radius:5px;overflow:hidden}
+.ts-scroll{overflow-x:auto;overflow-y:hidden;display:flex;min-height:52px}
+.ts-scroll::-webkit-scrollbar{height:3px}
+.ts-scroll::-webkit-scrollbar-thumb{background:var(--border)}
+.ts-cells{display:flex;flex-shrink:0}
+.ts-cell{display:flex;flex-direction:column;flex-shrink:0;border-right:1px solid var(--border)}
+.ts-cell:last-child{border-right:none}
+.ts-idx{font-size:8px;color:var(--text2);font-family:'IBM Plex Mono',monospace;padding:2px 0;text-align:center;background:var(--panel2);border-bottom:1px solid var(--border);min-width:46px;width:46px}
+.ts-cell input{width:46px;background:transparent;border:none;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 3px;text-align:center;outline:none;flex:1}
+.ts-cell input:focus{background:rgba(0,229,160,.05)}
+.ts-del{width:46px;background:transparent;border:none;border-top:1px solid var(--border);color:transparent;font-size:11px;cursor:pointer;text-align:center;padding:2px 0;transition:color .15s}
+.ts-cell:hover .ts-del{color:var(--red)}
+.ts-empty{padding:10px 14px;font-size:10px;color:var(--text2);font-family:'IBM Plex Mono',monospace;align-self:center}
+.ts-actions{display:flex;gap:5px;padding:5px 7px;border-top:1px solid var(--border);align-items:center;flex-wrap:wrap}
+
+/* ── CONNECTIONS ── */
+.conn-item{display:flex;align-items:center;gap:8px;padding:6px 9px;background:var(--code-bg);border-radius:4px;margin-bottom:4px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer;border:1px solid transparent}
+.conn-item:hover{border-color:var(--red)}
+.conn-type{color:var(--text2);font-size:10px}
+.conn-del{margin-left:auto;color:var(--text2);font-size:16px;line-height:1}
+.conn-del:hover{color:var(--red)}
+.conn-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* ── NODES LIST ── */
+.nli{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px;transition:background .1s}
+.nli:hover{background:var(--panel2)}
+.nli.sel{background:rgba(0,229,160,.07)}
+.nli-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.nli-id{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2)}
+
+/* ── R CODE ── */
+#code-output{flex:1;background:var(--code-bg);color:#abb2bf;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:12px;overflow-y:auto;white-space:pre;line-height:1.6;border:none;resize:none;width:100%}
+#code-output::-webkit-scrollbar{width:4px}
+#code-output::-webkit-scrollbar-thumb{background:var(--border)}
+.code-toolbar{display:flex;padding:7px 10px;gap:6px;border-top:1px solid var(--border);background:var(--panel);flex-shrink:0}
+
+/* ── DELETE BTN ── */
+.del-node-btn{width:100%;margin-top:10px;padding:8px;background:transparent;border:1px solid var(--red);border-radius:4px;color:var(--red);font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;transition:all .15s}
+.del-node-btn:hover{background:rgba(255,110,110,.1)}
+
+/* ── STATUS ── */
+#statusbar{height:22px;background:var(--panel);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:14px;flex-shrink:0}
+.si{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text2);display:flex;align-items:center;gap:4px}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+
+/* ── MODALS ── */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);z-index:9000;display:none;align-items:center;justify-content:center}
+.modal-backdrop.open{display:flex}
+
+/* connection modal */
+#conn-modal .modal-box{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:18px;width:310px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.modal-title{font-size:13px;font-weight:600;margin-bottom:4px}
+.modal-sub{font-size:11px;color:var(--text2);margin-bottom:12px;font-family:'IBM Plex Mono',monospace}
+.modal-opt{display:flex;flex-direction:column;padding:9px;border-radius:5px;border:1px solid var(--border);margin-bottom:6px;cursor:pointer;transition:all .15s}
+.modal-opt:hover{border-color:var(--accent);background:rgba(0,229,160,.05)}
+.modal-opt-title{font-size:12px;font-weight:500;margin-bottom:2px}
+.modal-opt-desc{font-size:10px;color:var(--text2);font-family:'IBM Plex Mono',monospace}
+.modal-cancel{width:100%;padding:8px;margin-top:6px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text2);font-size:12px;cursor:pointer;transition:all .15s}
+.modal-cancel:hover{color:var(--text);border-color:var(--text)}
+
+/* ── ABOUT MODAL ── */
+#about-modal .about-box{background:rgba(22,27,34,.96);border:1px solid var(--border);border-radius:12px;width:520px;max-width:94vw;box-shadow:0 30px 80px rgba(0,0,0,.7);overflow:hidden}
+.about-header{padding:28px 30px 20px;border-bottom:1px solid var(--border);position:relative}
+.about-logo{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:var(--accent);letter-spacing:.06em;margin-bottom:4px}
+.about-logo span{color:var(--text2)}
+.about-tagline{font-size:12px;color:var(--text2);font-family:'IBM Plex Mono',monospace}
+.about-close{position:absolute;top:18px;right:18px;width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.about-close:hover{border-color:var(--red);color:var(--red)}
+.about-body{padding:24px 30px;overflow-y:auto;max-height:65vh}
+.about-body::-webkit-scrollbar{width:4px}
+.about-body::-webkit-scrollbar-thumb{background:var(--border)}
+.about-section{margin-bottom:22px}
+.about-section-title{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);font-family:'IBM Plex Mono',monospace;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.about-section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.about-text{font-size:13px;color:var(--text2);line-height:1.75}
+.about-text b{color:var(--text)}
+.about-text code{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);background:rgba(0,229,160,.08);padding:1px 5px;border-radius:3px}
+.about-pill-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.about-pill{font-size:11px;font-family:'IBM Plex Mono',monospace;padding:3px 10px;border-radius:12px;border:1px solid var(--border);color:var(--text2)}
+.about-pill.subbasin{border-color:#66bb6a66;color:#66bb6a;background:#66bb6a08}
+.about-pill.reach{border-color:#26c6da66;color:#26c6da;background:#26c6da08}
+.about-pill.reservoir{border-color:#5c6bc066;color:#5c6bc0;background:#5c6bc008}
+.about-pill.junction{border-color:#bdbdbd66;color:#bdbdbd;background:#bdbdbd08}
+.about-pill.diversion{border-color:#ffa72666;color:#ffa726;background:#ffa72608}
+.about-dev-card{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:16px 18px;display:flex;gap:14px;align-items:center}
+.about-dev-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#0047ab);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:16px;color:#fff;flex-shrink:0}
+.about-dev-name{font-size:14px;font-weight:600;margin-bottom:2px}
+.about-dev-sub{font-size:11px;color:var(--text2);line-height:1.5}
+.about-dev-sub a{color:var(--accent);text-decoration:none}
+.about-dev-sub a:hover{text-decoration:underline}
+.about-footer{padding:14px 30px;border-top:1px solid var(--border);font-size:10px;color:var(--text2);font-family:'IBM Plex Mono',monospace;display:flex;justify-content:space-between;align-items:center}
+
+/* ── HELP MODAL ── */
+#help-modal .help-box{background:rgba(22,27,34,.96);border:1px solid var(--border);border-radius:12px;width:680px;max-width:96vw;height:540px;display:flex;flex-direction:column;box-shadow:0 30px 80px rgba(0,0,0,.7);overflow:hidden}
+.help-top{display:flex;align-items:center;padding:0 18px;height:46px;border-bottom:1px solid var(--border);flex-shrink:0;gap:2px}
+.help-tab-btn{height:32px;padding:0 12px;border-radius:4px;border:none;background:transparent;color:var(--text2);font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer;transition:all .15s;white-space:nowrap;letter-spacing:.03em}
+.help-tab-btn:hover{color:var(--text)}
+.help-tab-btn.active{color:var(--accent);background:rgba(0,229,160,.08)}
+.help-close{margin-left:auto;width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.help-close:hover{border-color:var(--red);color:var(--red)}
+.help-body{flex:1;overflow-y:auto;padding:18px 22px}
+.help-body::-webkit-scrollbar{width:4px}
+.help-body::-webkit-scrollbar-thumb{background:var(--border)}
+.help-section{margin-bottom:20px}
+.help-section-title{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--accent);font-family:'IBM Plex Mono',monospace;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.help-row{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid rgba(48,54,61,.5);font-size:12px;align-items:flex-start}
+.help-row:last-child{border-bottom:none}
+.help-key{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);flex-shrink:0;min-width:100px;line-height:1.5}
+.help-val{color:var(--text2);line-height:1.6}
+.help-val b{color:var(--text)}
+.help-kbd{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;background:var(--panel2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:var(--text);margin:0 2px}
+.help-badge{font-size:9px;padding:1px 6px;border-radius:10px;font-family:'IBM Plex Mono',monospace}
+.hb-req{background:rgba(240,136,62,.15);color:var(--orange)}
+.hb-opt{background:rgba(139,148,158,.15);color:var(--text2)}
+.hb-ts{background:rgba(0,229,160,.12);color:var(--accent)}
+.hb-mat{background:rgba(57,211,83,.12);color:var(--green)}
+.help-type-row{display:flex;align-items:flex-start;gap:12px;padding:10px;border:1px solid var(--border);border-radius:6px;margin-bottom:8px}
+.help-type-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;margin-top:4px}
+.help-type-name{font-size:13px;font-weight:600;margin-bottom:2px}
+.help-type-fn{font-family:'IBM Plex Mono',monospace;font-size:10px;margin-bottom:4px}
+.help-type-desc{font-size:12px;color:var(--text2);line-height:1.55}
+.conn-legend{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(48,54,61,.5);font-size:12px}
+.conn-legend:last-child{border-bottom:none}
+.conn-legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* ── IMPORT MODAL ── */
+#import-modal .import-box{background:rgba(22,27,34,.97);border:1px solid var(--border);border-radius:12px;width:480px;max-width:95vw;box-shadow:0 30px 80px rgba(0,0,0,.7);overflow:hidden}
+.import-header{padding:20px 24px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.import-title{font-size:14px;font-weight:600;color:var(--text)}
+.import-close{width:26px;height:26px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center}
+.import-close:hover{border-color:var(--red);color:var(--red)}
+.import-body{padding:20px 24px}
+.import-summary{background:var(--code-bg);border:1px solid var(--border);border-radius:6px;padding:12px 14px;margin-bottom:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.8;color:var(--text2)}
+.import-summary b{color:var(--accent)}
+.import-warn{background:rgba(240,136,62,.08);border:1px solid rgba(240,136,62,.3);border-radius:5px;padding:8px 12px;font-size:11px;color:var(--orange);margin-bottom:14px;line-height:1.6}
+.import-footer{display:flex;gap:8px;padding:14px 24px;border-top:1px solid var(--border);background:var(--panel)}
+.import-ok{flex:1;padding:9px;background:var(--accent);border:none;border-radius:5px;color:#000;font-weight:600;font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace}
+.import-ok:hover{background:var(--accent2)}
+.import-cancel{padding:9px 18px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--text2);font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace}
+.import-cancel:hover{border-color:var(--text);color:var(--text)}
+
+/* ── SMART TOOLTIP ── */
+#hq-tip{position:fixed;z-index:99999;background:var(--panel2);border:1px solid var(--accent);border-radius:6px;padding:9px 12px;font-size:11px;color:var(--text);font-family:'IBM Plex Sans',sans-serif;line-height:1.6;white-space:normal;width:242px;max-width:calc(100vw - 20px);box-shadow:0 8px 28px rgba(0,0,0,.6);pointer-events:none;opacity:0;transition:opacity .15s;word-break:break-word}
+#hq-tip.visible{opacity:1}
+
+/* ── LEAFLET ── */
+.leaflet-container{background:#1a1d26}
+.leaflet-control-zoom a{background:var(--panel)!important;color:var(--text)!important;border-color:var(--border)!important}
+.leaflet-control-zoom a:hover{background:var(--panel2)!important;color:var(--accent)!important}
+.leaflet-control-attribution{background:rgba(13,17,23,.7)!important;color:var(--text2)!important;font-size:9px!important}
+.rhms-tooltip{background:#161b22!important;border:1px solid #30363d!important;color:#e6edf3!important;font-family:'IBM Plex Mono',monospace!important;font-size:11px!important;border-radius:5px!important;box-shadow:0 4px 12px rgba(0,0,0,.4)!important}
+.rhms-tooltip::before{display:none}
+</style>
+</head>
+<body>
+
+<!-- ══ TOP BAR ══ -->
+<div id="topbar">
+  <div class="logo">RHMS <span>// Builder</span></div>
+  <div class="top-sep"></div>
+  <button class="top-btn" onclick="setMode('select')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2l10 6-5 1-2 5z"/></svg>Select
+  </button>
+  <button class="top-btn" onclick="setConnectMode()" id="btn-connect">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="3" cy="8" r="2"/><circle cx="13" cy="8" r="2"/><line x1="5" y1="8" x2="11" y2="8"/><path d="M10 6l3 2-3 2" fill="none"/></svg>Connect
+  </button>
+  <div class="top-sep"></div>
+  <span class="tb-label">Basin:</span>
+  <input id="sim-name" type="text" class="tb-input" value="MyBasin" style="width:110px"/>
+  <span class="tb-label">Start:</span><input id="sim-start" type="date" class="tb-input" value="2000-01-01"/>
+  <span class="tb-label">End:</span><input id="sim-end" type="date" class="tb-input" value="2000-01-10"/>
+  <span class="tb-label">by (s):</span>
+  <input id="sim-by" type="number" class="tb-input" value="3600" min="1" step="1" style="width:72px" title="Time step in seconds (e.g. 3600 = 1 hour, 7200 = 2 hours, 86400 = 1 day)"/>
+  <div class="top-sep"></div>
+  <button class="top-btn active" id="btn-bg" onclick="toggleBg()" title="Toggle map background">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="2"/><path d="M1 6h14M6 1v14"/></svg>Map BG
+  </button>
+  <div class="top-sep"></div>
+  <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:var(--text2);white-space:nowrap;user-select:none">
+    <input type="checkbox" id="chk-labels" onchange="toggleLabels(this.checked)" style="width:13px;height:13px;accent-color:var(--accent);cursor:pointer"/>
+    Show Labels
+  </label>
+  <div class="spacer"></div>
+  <label class="top-btn" style="cursor:pointer;color:var(--green);border-color:var(--green)" title="Import RHMS JSON model file">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M5 7l3 3 3-3"/><rect x="2" y="11" width="12" height="3" rx="1"/></svg>
+    Import JSON
+    <input type="file" accept=".json" style="display:none" onchange="importJSON(event)"/>
+  </label>
+  <div class="top-sep"></div>
+  <button class="top-btn danger" onclick="clearAll()">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="1,4 15,4"/><path d="M3 4l1 10h8l1-10M6 4V2h4v2"/></svg>Clear
+  </button>
+  <button class="top-btn primary" onclick="showCode()">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="5,4 2,8 5,12"/><polyline points="11,4 14,8 11,12"/></svg>R Code
+  </button>
+</div>
+
+<div id="main">
+
+<!-- ══ LEFT TOOLBAR ══ -->
+<div id="toolbar">
+  <div class="tsl">Tools</div>
+  <button class="tool-btn active" id="tool-select" onclick="setMode('select')" title="Select & drag nodes (V)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3l16 9-8 2-3 8z"/></svg>
+    <span class="tlabel">Select</span>
+  </button>
+  <div class="tsep"></div>
+  <div class="tsl">Add</div>
+  <button class="tool-btn" id="tool-subbasin" onclick="setMode('subbasin')" title="Place Subbasin node (B)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#66bb6a" stroke-width="2"><path d="M12 3L3 18h18z"/><path d="M9 18v-5a3 3 0 0 1 6 0v5" stroke-dasharray="2,1.5"/></svg>
+    <span class="tlabel">Subbasin</span>
+  </button>
+  <button class="tool-btn" id="tool-reach" onclick="setMode('reach')" title="Place Reach node (R)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#26c6da" stroke-width="2"><path d="M3 12C6 9 9 15 12 12s6-3 9 0"/><circle cx="3" cy="12" r="2" fill="#26c6da"/><circle cx="21" cy="12" r="2" fill="#26c6da"/></svg>
+    <span class="tlabel">Reach</span>
+  </button>
+  <button class="tool-btn" id="tool-reservoir" onclick="setMode('reservoir')" title="Place Reservoir node (S)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#5c6bc0" stroke-width="2"><rect x="3" y="8" width="18" height="11" rx="1"/><path d="M3 8C3 6 12 3 21 8"/><line x1="9" y1="19" x2="9" y2="21"/><line x1="15" y1="19" x2="15" y2="21"/></svg>
+    <span class="tlabel">Reservoir</span>
+  </button>
+  <button class="tool-btn" id="tool-junction" onclick="setMode('junction')" title="Place Junction node (J)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#bdbdbd" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="2" x2="12" y2="7"/><line x1="22" y1="12" x2="17" y2="12"/><line x1="12" y1="22" x2="12" y2="17"/></svg>
+    <span class="tlabel">Junction</span>
+  </button>
+  <button class="tool-btn" id="tool-diversion" onclick="setMode('diversion')" title="Place Diversion node (D)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#ffa726" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="2" transform="rotate(45 12 12)"/><line x1="12" y1="2" x2="12" y2="7"/><line x1="22" y1="12" x2="17" y2="12"/></svg>
+    <span class="tlabel">Diversion</span>
+  </button>
+  <div class="tsep"></div>
+  <div class="tsl">Link</div>
+  <button class="tool-btn" id="tool-connect" onclick="setConnectMode()" title="Connect nodes (C)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="12" r="3"/><line x1="8" y1="12" x2="16" y2="12"/><path d="M13 9l3 3-3 3"/></svg>
+    <span class="tlabel">Connect</span>
+  </button>
+  <div class="tsep"></div>
+  <div class="tsl">Node</div>
+  <button class="tool-btn" id="tool-delete-sel" onclick="deleteSelected()" disabled
+    style="opacity:.3;cursor:not-allowed" title="Delete selected node (Del)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2">
+      <polyline points="3,6 21,6"/><path d="M5 6l1 14h12l1-14M10 6V4h4v2"/>
+      <line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+    </svg>
+    <span class="tlabel" style="color:var(--red)">Delete</span>
+  </button>
+  <div class="tb-spacer"></div>
+  <div class="tsep"></div>
+  <button class="tool-btn" onclick="openAbout()" title="About RHMS Builder">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12.01" y2="8" stroke-linecap="round" stroke-width="3"/><line x1="12" y1="11" x2="12" y2="17" stroke-linecap="round"/></svg>
+    <span class="tlabel">About</span>
+  </button>
+  <button class="tool-btn" onclick="openHelp(0)" title="Help & Reference">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2.5-2.5 4" stroke-linecap="round"/><circle cx="12" cy="18.5" r=".8" fill="var(--text2)"/></svg>
+    <span class="tlabel">Help</span>
+  </button>
+</div>
+
+<!-- ══ MAP ══ -->
+<div id="map-container">
+  <div id="map"></div>
+  <div id="map-hint">Click on map to place object</div>
+  <div id="connect-overlay">CONNECT — click source node, then target node</div>
+</div>
+
+<!-- ══ RIGHT PANEL ══ -->
+<div id="right-panel">
+  <div class="panel-tabs">
+    <button class="panel-tab active" onclick="switchTab('properties')" id="tab-properties">Properties</button>
+    <button class="panel-tab" onclick="switchTab('nodes')" id="tab-nodes">Nodes</button>
+    <button class="panel-tab" onclick="switchTab('code')" id="tab-code">R Code</button>
+  </div>
+  <div class="tab-content active panel-body" id="tab-content-properties">
+    <div id="props-panel">
+      <div class="props-empty" id="props-empty">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Select a node on the map<br>to view and edit its properties
+      </div>
+      <div id="props-content" style="display:none"></div>
+    </div>
+  </div>
+  <div class="tab-content panel-body" id="tab-content-nodes">
+    <div id="nodes-list" style="padding-top:4px"></div>
+  </div>
+  <div class="tab-content" id="tab-content-code" style="flex-direction:column">
+    <textarea id="code-output" readonly spellcheck="false"># Click "R Code" to generate your RHMS script.</textarea>
+    <div class="code-toolbar">
+      <button class="top-btn" onclick="generateCode()">Refresh</button>
+      <button class="top-btn" onclick="copyCode()">Copy</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- #main -->
+
+<!-- ══ STATUS BAR ══ -->
+<div id="statusbar">
+  <div class="si"><div class="sdot"></div><span id="status-mode">Mode: SELECT</span></div>
+  <div class="si">Nodes: <span id="status-nodes">0</span></div>
+  <div class="si">Connections: <span id="status-conns">0</span></div>
+  <div class="si" id="status-coords" style="margin-left:auto">Lat: — | Lng: —</div>
+</div>
+
+<!-- ══ CONNECTION MODAL ══ -->
+<div id="conn-modal" class="modal-backdrop">
+  <div class="modal-box">
+    <div class="modal-title">Connection Type</div>
+    <div class="modal-sub" id="conn-modal-sub"></div>
+    <div id="conn-options"></div>
+    <button class="modal-cancel" onclick="closeConnModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- ══ ABOUT MODAL ══ -->
+<div id="about-modal" class="modal-backdrop" onclick="closeAbout(event)">
+  <div class="about-box" onclick="event.stopPropagation()">
+    <div class="about-header">
+      <div class="about-logo">RHMS <span>// System Builder</span></div>
+      <div class="about-tagline">Interactive graphical front-end for the RHMS R package</div>
+      <button class="about-close" onclick="closeAbout()">×</button>
+    </div>
+    <div class="about-body">
+      <div class="about-section">
+        <div class="about-section-title">What is RHMS Builder?</div>
+        <p class="about-text">
+          <b>RHMS Builder</b> is a browser-based, GIS-style graphical interface for constructing rainfall–runoff basin models using the
+          <code>RHMS</code> R package (<i>Rainfall–Runoff Hydrological Modelling System</i>). It lets hydrologists and hydraulic engineers
+          visually design watershed networks — placing objects on a geographic map, setting their parameters through structured forms,
+          and generating production-ready R scripts without writing a single line of code by hand.
+        </p>
+      </div>
+      <div class="about-section">
+        <div class="about-section-title">Supported Object Types</div>
+        <div class="about-pill-row">
+          <span class="about-pill subbasin">Subbasin</span>
+          <span class="about-pill reach">Reach</span>
+          <span class="about-pill reservoir">Reservoir</span>
+          <span class="about-pill junction">Junction</span>
+          <span class="about-pill diversion">Diversion</span>
+        </div>
+      </div>
+      <div class="about-section">
+        <div class="about-section-title">Key Features</div>
+        <p class="about-text">
+          • <b>GIS map canvas</b> — place and drag nodes on dark CartoDB or standard OSM tiles.<br>
+          • <b>Typed connections</b> — <i>downstream</i> flow routing and <i>divertTo</i> diversion targets, each colour-coded on the map.<br>
+          • <b>Rich property forms</b> — conditional transform/loss/baseflow method panels that animate open as you switch methods, time series editors for precipitation and inflow, and 2-column matrix editors for reservoir rating curves.<br>
+          • <b>Live R code generation</b> — topologically sorted, fully commented R script using <code>createBasin</code>, <code>addObjectToBasin</code>, and <code>sim</code>.<br>
+          • <b>Floating object labels</b> — toggle node names on the map with a single checkbox.<br>
+          • <b>Contextual help</b> — inline <code>?</code> tooltips on every field explain the corresponding RHMS constructor argument.
+        </p>
+      </div>
+      <div class="about-section">
+        <div class="about-section-title">How to Use</div>
+        <p class="about-text">
+          1. Set your simulation period (start, end, by in seconds) in the top bar.<br>
+          2. Select an object type from the left toolbar and click the map to place it.<br>
+          3. Click a node to open its Properties panel and fill in the required fields.<br>
+          4. Use <b>Connect</b> to draw typed links (downstream / divertTo) between nodes.<br>
+          5. Click <b>R Code</b> to generate your complete simulation script, then copy it to RStudio.
+        </p>
+      </div>
+      <div class="about-section">
+        <div class="about-section-title">Developer</div>
+        <div class="about-dev-card">
+          <div class="about-dev-avatar">RA</div>
+          <div>
+            <div class="about-dev-name">Rezgar Arabzadeh</div>
+            <div class="about-dev-sub">
+              Department of Civil and Environmental Engineering<br>
+              <b>University of Waterloo</b> — Waterloo, Ontario, Canada<br>
+              <a href="mailto:rarabzad@uwaterloo.ca">rarabzad@uwaterloo.ca</a> · 2026
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="about-footer">
+      <span>Built for the RHMS R package ecosystem</span>
+      <span>University of Waterloo · 2026</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ HELP MODAL ══ -->
+<div id="help-modal" class="modal-backdrop" onclick="closeHelp(event)">
+  <div class="help-box" onclick="event.stopPropagation()">
+    <div class="help-top">
+      <button class="help-tab-btn active" id="htab-0" onclick="helpTab(0)">Interface</button>
+      <button class="help-tab-btn" id="htab-1" onclick="helpTab(1)">Objects</button>
+      <button class="help-tab-btn" id="htab-2" onclick="helpTab(2)">Properties</button>
+      <button class="help-tab-btn" id="htab-3" onclick="helpTab(3)">Connections</button>
+      <button class="help-tab-btn" id="htab-4" onclick="helpTab(4)">R Code</button>
+      <button class="help-close" onclick="closeHelp()">×</button>
+    </div>
+    <div class="help-body" id="help-body"></div>
+  </div>
+</div>
+
+<!-- ══ IMPORT CONFIRM MODAL ══ -->
+<div id="import-modal" class="modal-backdrop" onclick="if(event.target===this)closeImportModal()">
+  <div class="import-box" onclick="event.stopPropagation()">
+    <div class="import-header">
+      <div class="import-title">Import RHMS JSON Model</div>
+      <button class="import-close" onclick="closeImportModal()">×</button>
+    </div>
+    <div class="import-body">
+      <div class="import-summary" id="import-summary"></div>
+      <div class="import-warn" id="import-warn" style="display:none"></div>
+    </div>
+    <div class="import-footer">
+      <button class="import-cancel" onclick="closeImportModal()">Cancel</button>
+      <button class="import-ok" onclick="confirmImport()">⬇ Import &amp; Populate Canvas</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SMART FLOATING TOOLTIP ══ -->
+<div id="hq-tip"></div>
+
+<script>
+// ══════════════════════════════════════════════════
+// SMART TOOLTIP
+// ══════════════════════════════════════════════════
+(function(){
+  const tip=document.getElementById('hq-tip');
+  const PAD=12;
+  let hideTimer=null;
+  function showTip(btn){
+    clearTimeout(hideTimer);
+    const text=btn.getAttribute('data-tip');if(!text)return;
+    tip.textContent=text;tip.style.left='-9999px';tip.style.top='-9999px';tip.classList.add('visible');
+    requestAnimationFrame(()=>{
+      const btnR=btn.getBoundingClientRect(),tw=tip.offsetWidth,th=tip.offsetHeight,vw=window.innerWidth,vh=window.innerHeight;
+      let left=btnR.right+10,top=btnR.top+btnR.height/2-th/2;
+      if(left+tw+PAD>vw)left=btnR.left-tw-10;
+      left=Math.max(PAD,Math.min(left,vw-tw-PAD));top=Math.max(PAD,Math.min(top,vh-th-PAD));
+      tip.style.left=left+'px';tip.style.top=top+'px';
+    });
+  }
+  function hideTip(){hideTimer=setTimeout(()=>tip.classList.remove('visible'),80);}
+  document.addEventListener('mouseover',e=>{const b=e.target.closest('.hq');if(b)showTip(b);});
+  document.addEventListener('mouseout',e=>{const b=e.target.closest('.hq');if(b){const r=e.relatedTarget;if(!r||!b.contains(r))hideTip();}});
+  window.addEventListener('scroll',hideTip,true);window.addEventListener('resize',hideTip);
+})();
+
+// ══════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════
+let nodes=[],connections=[],selectedNode=null,currentMode='select';
+let connPendingSource=null;
+let nodeCounter={subbasin:0,reach:0,reservoir:0,junction:0,diversion:0};
+let labelsVisible=false,labelMarkers={};
+
+const TM={
+  subbasin: {color:'#66bb6a',label:'Subbasin', short:'Sb'},
+  reach:    {color:'#26c6da',label:'Reach',    short:'R' },
+  reservoir:{color:'#5c6bc0',label:'Reservoir',short:'Rs'},
+  junction: {color:'#bdbdbd',label:'Junction', short:'J' },
+  diversion:{color:'#ffa726',label:'Diversion',short:'Dv'},
+};
+const CC={downstream:'#00d4ff',divertTo:'#ff5722'};
+
+// ══════════════════════════════════════════════════
+// MAP
+// ══════════════════════════════════════════════════
+const map=L.map('map',{zoomControl:true});
+const darkTiles=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; OpenStreetMap &copy; CARTO',subdomains:'abcd',maxZoom:20});
+const lightTiles=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',maxZoom:19});
+let darkBg=true;
+darkTiles.addTo(map);
+map.setView([36,47],7);
+map.on('mousemove',e=>{document.getElementById('status-coords').textContent=`Lat:${e.latlng.lat.toFixed(5)} | Lng:${e.latlng.lng.toFixed(5)}`;});
+map.on('click',e=>{if(currentMode==='select'||currentMode==='connect')return;placeNode(currentMode,e.latlng);});
+
+function toggleBg(){
+  darkBg=!darkBg;
+  const btn=document.getElementById('btn-bg');
+  if(darkBg){lightTiles.remove();darkTiles.addTo(map);btn.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="2"/><path d="M1 6h14M6 1v14"/></svg> Map BG';btn.classList.add('active');}
+  else{darkTiles.remove();lightTiles.addTo(map);btn.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="2"/><path d="M1 6h14M6 1v14"/></svg> Dark BG';btn.classList.remove('active');}
+}
+
+// ══════════════════════════════════════════════════
+// MARKERS
+// ══════════════════════════════════════════════════
+function mSVG(type,sel=false){
+  const c=TM[type].color,g=sel?`filter:drop-shadow(0 0 6px ${c});`:'';
+  return{
+    subbasin: `<svg width="32" height="34" viewBox="0 0 32 34" style="${g}"><polygon points="16,2 30,30 2,30" fill="${c}33" stroke="${c}" stroke-width="2" stroke-linejoin="round"/><path d="M10 30v-8a6 6 0 0 1 12 0v8" stroke="${c}" stroke-width="1.5" fill="none" stroke-dasharray="2,1.5"/></svg>`,
+    reach:    `<svg width="34" height="28" viewBox="0 0 34 28" style="${g}"><ellipse cx="17" cy="14" rx="14" ry="10" fill="${c}22" stroke="${c}" stroke-width="2"/><path d="M5 14C8 10 12 18 17 14S26 10 29 14" stroke="${c}" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>`,
+    reservoir:`<svg width="34" height="30" viewBox="0 0 34 30" style="${g}"><rect x="3" y="12" width="28" height="15" rx="2" fill="${c}33" stroke="${c}" stroke-width="2"/><path d="M3 12C3 8 17 3 31 12" stroke="${c}" stroke-width="2" fill="none"/><line x1="11" y1="27" x2="11" y2="30" stroke="${c}" stroke-width="2"/><line x1="23" y1="27" x2="23" y2="30" stroke="${c}" stroke-width="2"/></svg>`,
+    junction: `<svg width="28" height="28" viewBox="0 0 28 28" style="${g}"><circle cx="14" cy="14" r="10" fill="${c}22" stroke="${c}" stroke-width="2"/><circle cx="14" cy="14" r="4" fill="${c}"/></svg>`,
+    diversion:`<svg width="32" height="32" viewBox="0 0 32 32" style="${g}"><rect x="7" y="7" width="18" height="18" rx="2" fill="${c}22" stroke="${c}" stroke-width="2" transform="rotate(45 16 16)"/><line x1="16" y1="4" x2="16" y2="9" stroke="${c}" stroke-width="2"/><line x1="28" y1="16" x2="23" y2="16" stroke="${c}" stroke-width="2"/></svg>`,
+  }[type]||'';
+}
+function mkIcon(type,sel=false){
+  const sz={subbasin:[32,34],reach:[34,28],reservoir:[34,30],junction:[28,28],diversion:[32,32]}[type]||[30,30];
+  return L.divIcon({html:mSVG(type,sel),className:'rhms-m',iconSize:sz,iconAnchor:[sz[0]/2,sz[1]/2]});
+}
+
+// ══════════════════════════════════════════════════
+// NODE MANAGEMENT
+// ══════════════════════════════════════════════════
+function defProps(type,name){
+  switch(type){
+    case 'subbasin':  return{name,Area:'',precipitation:[],inflow:[],delayInflow:'',
+                             transformMethod:'SCS',lossMethod:'SCS',BFSMethod:'',
+                             canopyAbstraction:'',surfaceAbstraction:'',
+                             Tlag:'',Cp:'',Ct:'',L:'',Lc:'',
+                             CN:'',imperviousness:'',
+                             f0:'',f1:'',fc:'',k_horton:'',timeIntervalHorton:'',
+                             UH:[],
+                             alpha:'',BFI:'',k_bfs:'',timeIntervalBFS:''};
+    case 'reach':     return{name,routingMethod:'muskingum',inflow:[],delayInflow:'',
+                             k_musk:'',x_musk:'',
+                             bedWidth:'',sideSlope:'',channelSlope:'',manningRoughness:'',riverLength:''};
+    case 'reservoir': return{name,initialStorage:'',inflow:[],delayInflow:'',
+                             capacity:'',storageElevationCurve:[],dischargeElevationCurve:[]};
+    case 'junction':  return{name,inflow:[],delayInflow:''};
+    case 'diversion': return{name,capacity:''};
+    default:return{name};
+  }
+}
+
+function placeNode(type,latlng){
+  nodeCounter[type]++;
+  const id=`${TM[type].short}${nodeCounter[type]}`,varName=`${type}${nodeCounter[type]}`;
+  const node={id,varName,type,latlng,props:defProps(type,id),marker:null,connections:[]};
+  const marker=L.marker([latlng.lat,latlng.lng],{icon:mkIcon(type),draggable:true}).addTo(map);
+  marker.on('click',e=>{L.DomEvent.stopPropagation(e);currentMode==='connect'?handleConnClick(node):selectNode(node);});
+  marker.on('dragend',()=>{node.latlng=marker.getLatLng();redrawConns(node);refreshLabel(node);});
+  marker.bindTooltip(`<b>${id}</b><br><span style="color:#8b949e;font-size:10px">${TM[type].label}</span>`,{direction:'top',className:'rhms-tooltip',offset:[0,-16]});
+  node.marker=marker;nodes.push(node);
+  updateStatus();updateNodesList();selectNode(node);setMode('select');showLabel(node);
+}
+
+function selectNode(node){
+  if(selectedNode)selectedNode.marker.setIcon(mkIcon(selectedNode.type,false));
+  selectedNode=node;
+  if(node){node.marker.setIcon(mkIcon(node.type,true));renderProps(node);switchTab('properties');}
+  setDelBtnState(!!node);updateNodesList();
+}
+
+function deleteNode(node){
+  if(!node)return;
+  connections=connections.filter(c=>{
+    if(c.from.id===node.id||c.to.id===node.id){if(c.line)map.removeLayer(c.line);if(c.arrow)map.removeLayer(c.arrow);return false;}
+    return true;
+  });
+  removeLabel(node.id);map.removeLayer(node.marker);nodes=nodes.filter(n=>n.id!==node.id);
+  selectedNode=null;
+  document.getElementById('props-content').style.display='none';
+  document.getElementById('props-empty').style.display='';
+  setDelBtnState(false);updateStatus();updateNodesList();
+}
+
+function deleteSelected(){if(selectedNode)deleteNode(selectedNode);}
+function setDelBtnState(on){
+  const b=document.getElementById('tool-delete-sel');if(!b)return;
+  b.disabled=!on;b.style.opacity=on?'1':'0.3';b.style.cursor=on?'pointer':'not-allowed';
+}
+
+function clearAll(){
+  if(nodes.length>0&&!confirm('Clear all nodes and connections?'))return;
+  connections.forEach(c=>{if(c.line)map.removeLayer(c.line);if(c.arrow)map.removeLayer(c.arrow);});
+  nodes.forEach(n=>map.removeLayer(n.marker));
+  Object.values(labelMarkers).forEach(m=>map.removeLayer(m));
+  nodes=[];connections=[];selectedNode=null;labelMarkers={};
+  nodeCounter={subbasin:0,reach:0,reservoir:0,junction:0,diversion:0};
+  document.getElementById('props-content').style.display='none';
+  document.getElementById('props-empty').style.display='';
+  setDelBtnState(false);updateStatus();updateNodesList();
+}
+
+// ══════════════════════════════════════════════════
+// LABEL MARKERS
+// ══════════════════════════════════════════════════
+function toggleLabels(on){
+  labelsVisible=on;
+  if(on)nodes.forEach(n=>showLabel(n));
+  else{Object.values(labelMarkers).forEach(m=>map.removeLayer(m));labelMarkers={};}
+}
+function showLabel(node){
+  if(!labelsVisible)return;
+  if(labelMarkers[node.id])map.removeLayer(labelMarkers[node.id]);
+  const meta=TM[node.type],sz={subbasin:[32,34],reach:[34,28],reservoir:[34,30],junction:[28,28],diversion:[32,32]}[node.type]||[30,30];
+  const lbl=L.marker([node.latlng.lat,node.latlng.lng],{
+    icon:L.divIcon({
+      html:`<div style="background:rgba(13,17,23,.82);border:1px solid ${meta.color}66;border-radius:4px;padding:2px 7px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:${meta.color};white-space:nowrap;pointer-events:none;transform:translateX(-50%)">${node.props.name||node.id}</div>`,
+      className:'',iconSize:[0,0],iconAnchor:[0,-(Math.ceil(sz[1]/2)+4)]
+    }),interactive:false,keyboard:false
+  });
+  lbl.addTo(map);labelMarkers[node.id]=lbl;
+}
+function refreshLabel(node){if(labelsVisible)showLabel(node);}
+function removeLabel(id){if(labelMarkers[id]){map.removeLayer(labelMarkers[id]);delete labelMarkers[id];}}
+
+// ══════════════════════════════════════════════════
+// CONNECTIONS
+// ══════════════════════════════════════════════════
+const CTYPES={
+  downstream:{label:'Downstream', desc:'outflow routes to this target node',         app:['subbasin','reach','reservoir','junction','diversion']},
+  divertTo:  {label:'Divert To',  desc:'diverted volume routes to this target node', app:['diversion']},
+};
+
+function setConnectMode(){
+  currentMode='connect';connPendingSource=null;
+  document.getElementById('connect-overlay').style.display='block';
+  document.getElementById('map-hint').classList.add('hidden');
+  updateToolBtns();document.getElementById('status-mode').textContent='CONNECT — click source node';
+}
+function handleConnClick(node){
+  if(!connPendingSource){connPendingSource=node;node.marker.setIcon(mkIcon(node.type,true));document.getElementById('connect-overlay').textContent=`CONNECT — Source: ${node.id} | Click TARGET`;}
+  else{if(connPendingSource.id===node.id){connPendingSource.marker.setIcon(mkIcon(connPendingSource.type));connPendingSource=null;return;}openConnModal(connPendingSource,node);}
+}
+function openConnModal(src,tgt){
+  document.getElementById('conn-modal-sub').textContent=`${src.id} → ${tgt.id}`;
+  const opts=Object.entries(CTYPES).filter(([,v])=>v.app.includes(src.type));
+  const con=document.getElementById('conn-options');con.innerHTML='';
+  opts.forEach(([key,val])=>{const d=document.createElement('div');d.className='modal-opt';d.innerHTML=`<div class="modal-opt-title">${val.label}</div><div class="modal-opt-desc">${val.desc}</div>`;d.onclick=()=>{createConn(src,tgt,key);closeConnModal();};con.appendChild(d);});
+  document.getElementById('conn-modal').classList.add('open');
+}
+function closeConnModal(){
+  document.getElementById('conn-modal').classList.remove('open');
+  if(connPendingSource){connPendingSource.marker.setIcon(mkIcon(connPendingSource.type));connPendingSource=null;}
+  setMode('select');
+}
+function mkArrow(from,to,color){
+  const midLat=(from.lat+to.lat)/2,midLng=(from.lng+to.lng)/2,ang=Math.atan2(to.lat-from.lat,to.lng-from.lng)*180/Math.PI;
+  return L.marker([midLat,midLng],{icon:L.divIcon({html:`<svg width="16" height="16" viewBox="0 0 16 16" style="transform:rotate(${-ang+90}deg)"><polygon points="8,0 13,12 8,9 3,12" fill="${color}" opacity=".9"/></svg>`,className:'',iconSize:[16,16],iconAnchor:[8,8]}),interactive:false,keyboard:false});
+}
+function createConn(src,tgt,type){
+  if(connections.find(c=>c.from.id===src.id&&c.to.id===tgt.id&&c.type===type))return;
+  const clr=CC[type]||'#aaa';
+  const line=L.polyline([src.latlng,tgt.latlng],{color:clr,weight:2.5,opacity:.85,dashArray:type==='downstream'?null:'6,4'}).addTo(map);
+  const arrow=mkArrow(src.latlng,tgt.latlng,clr);arrow.addTo(map);
+  const conn={id:Date.now()+Math.random(),from:src,to:tgt,type,line,arrow};
+  connections.push(conn);src.connections.push(conn);tgt.connections.push(conn);
+  src.marker.setIcon(mkIcon(src.type));connPendingSource=null;
+  updateStatus();if(selectedNode)renderProps(selectedNode);
+}
+function deleteConn(id){
+  const conn=connections.find(c=>c.id===id);if(!conn)return;
+  if(conn.line)map.removeLayer(conn.line);if(conn.arrow)map.removeLayer(conn.arrow);
+  connections=connections.filter(c=>c.id!==id);
+  nodes.forEach(n=>{n.connections=n.connections.filter(c=>c.id!==id);});
+  updateStatus();if(selectedNode)renderProps(selectedNode);
+}
+function redrawConns(node){
+  connections.forEach(c=>{
+    if(c.from.id===node.id||c.to.id===node.id){
+      c.line.setLatLngs([c.from.latlng,c.to.latlng]);
+      if(c.arrow){map.removeLayer(c.arrow);c.arrow=mkArrow(c.from.latlng,c.to.latlng,CC[c.type]||'#aaa');c.arrow.addTo(map);}
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════
+// MATRIX WIDGET
+// ══════════════════════════════════════════════════
+function matrixWidget(nid,key,c1,c2){
+  const node=nodes.find(n=>n.id===nid),data=(node?node.props[key]:[])||[],uid=`mw-${nid}-${key}`;
+  let rows='';
+  data.forEach((r,i)=>{rows+=`<div class="mw-row"><input type="number" step="any" value="${r&&r[0]!==null?r[0]:''}" placeholder="—" onchange="mxSet('${nid}','${key}',${i},0,this.value)"/><input type="number" step="any" value="${r&&r[1]!==null?r[1]:''}" placeholder="—" onchange="mxSet('${nid}','${key}',${i},1,this.value)"/><button class="dr" onclick="mxDel('${nid}','${key}',${i})">×</button></div>`;});
+  return `<div class="matrix-widget"><div class="mw-header"><span>${c1}</span><span>${c2}</span><span></span></div><div class="mw-rows" id="${uid}">${rows||`<div class="mw-empty">No rows — add or import below</div>`}</div><div class="mw-actions"><button class="act-btn" onclick="mxAdd('${nid}','${key}')">+ Row</button><label class="imp-label">⬆ CSV/TXT<input type="file" accept=".csv,.txt" onchange="mxImport(event,'${nid}','${key}')"/></label><span class="row-count" id="${uid}-cnt">${data.length} rows</span></div></div>`;
+}
+function mxSet(nid,key,row,col,val){const node=nodes.find(n=>n.id===nid);if(!node)return;if(!node.props[key])node.props[key]=[];if(!node.props[key][row])node.props[key][row]=[null,null];node.props[key][row][col]=val===''?null:parseFloat(val);const el=document.getElementById(`mw-${nid}-${key}-cnt`);if(el)el.textContent=`${node.props[key].length} rows`;}
+function mxAdd(nid,key){const node=nodes.find(n=>n.id===nid);if(!node)return;if(!node.props[key])node.props[key]=[];node.props[key].push([null,null]);renderProps(node);}
+function mxDel(nid,key,row){const node=nodes.find(n=>n.id===nid);if(!node)return;node.props[key].splice(row,1);renderProps(node);}
+function mxImport(evt,nid,key){const node=nodes.find(n=>n.id===nid);if(!node)return;const f=evt.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const lines=e.target.result.split(/\r?\n/).filter(l=>l.trim()&&!l.trim().startsWith('#'));const data=[];lines.forEach(l=>{const p=l.trim().split(/[\s,;\t]+/);if(p.length>=2){const a=parseFloat(p[0]),b=parseFloat(p[1]);if(!isNaN(a)&&!isNaN(b))data.push([a,b]);}});node.props[key]=data;renderProps(node);};r.readAsText(f);}
+
+// ══════════════════════════════════════════════════
+// TIME SERIES WIDGET
+// ══════════════════════════════════════════════════
+function tsWidget(nid,key,unit){
+  const node=nodes.find(n=>n.id===nid),data=(node?node.props[key]:[])||[],uid=`ts-${nid}-${key}`;
+  let cells='';
+  data.forEach((v,i)=>{cells+=`<div class="ts-cell"><div class="ts-idx">${i+1}</div><input type="number" step="any" value="${v!==null&&v!==undefined?v:''}" placeholder="—" onchange="tsSet('${nid}','${key}',${i},this.value)"/><button class="ts-del" onclick="tsDel('${nid}','${key}',${i})">×</button></div>`;});
+  return `<div class="ts-widget"><div class="ts-scroll"><div class="ts-cells" id="${uid}">${cells||`<div class="ts-empty">No values — add or import</div>`}</div></div><div class="ts-actions"><button class="act-btn" onclick="tsAdd('${nid}','${key}',1)">+ Cell</button><button class="act-btn" onclick="tsAdd('${nid}','${key}',12)">+12</button><button class="act-btn" onclick="tsAdd('${nid}','${key}',24)">+24</button><label class="imp-label">⬆ CSV/TXT<input type="file" accept=".csv,.txt" onchange="tsImport(event,'${nid}','${key}')"/></label><span class="row-count" id="${uid}-cnt">${data.length} val${unit?' ('+unit+')':''}</span></div></div>`;
+}
+function tsSet(nid,key,idx,val){const node=nodes.find(n=>n.id===nid);if(!node)return;if(!node.props[key])node.props[key]=[];node.props[key][idx]=val===''?null:parseFloat(val);const el=document.getElementById(`ts-${nid}-${key}-cnt`);if(el)el.textContent=`${node.props[key].length} val`;}
+function tsAdd(nid,key,n){const node=nodes.find(nd=>nd.id===nid);if(!node)return;if(!node.props[key])node.props[key]=[];for(let i=0;i<n;i++)node.props[key].push(null);renderProps(node);}
+function tsDel(nid,key,idx){const node=nodes.find(n=>n.id===nid);if(!node)return;node.props[key].splice(idx,1);renderProps(node);}
+function tsImport(evt,nid,key){const node=nodes.find(n=>n.id===nid);if(!node)return;const f=evt.target.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const vals=[];e.target.result.split(/\r?\n/).filter(l=>l.trim()&&!l.trim().startsWith('#')).forEach(l=>{l.trim().split(/[\s,;\t]+/).forEach(t=>{const v=parseFloat(t);if(!isNaN(v))vals.push(v);});});node.props[key]=vals;renderProps(node);};r.readAsText(f);}
+
+// ══════════════════════════════════════════════════
+// PROPERTY HELPERS
+// ══════════════════════════════════════════════════
+function hq(tip){const esc=tip.replace(/"/g,'&quot;').replace(/'/g,'&#39;');return `<button class="hq" data-tip="${esc}" tabindex="-1">?</button>`;}
+
+function pi(node,key,label,placeholder,req,hint,tip){
+  const v=node.props[key]!==undefined&&node.props[key]!==null?node.props[key]:'';
+  const badge=req==='req'?'<span class="req">required</span>':req==='opt'?'<span class="opt">optional</span>':'';
+  return `<div class="prop-row"><div class="prop-label"><div class="prop-label-left"><span>${label}</span>${tip?hq(tip):''}</div>${badge}</div><input class="prop-input" type="text" value="${v}" placeholder="${placeholder||''}" onchange="upd('${node.id}','${key}',this.value)"/>${hint?`<div class="prop-hint">${hint}</div>`:''}</div>`;
+}
+function psel(node,key,label,opts,tip){
+  const v=node.props[key]||opts[0].v;
+  return `<div class="prop-row"><div class="prop-label"><div class="prop-label-left"><span>${label}</span>${tip?hq(tip):''}</div></div><select class="prop-select" onchange="updRefresh('${node.id}','${key}',this.value)">${opts.map(o=>`<option value="${o.v}" ${v===o.v?'selected':''}>${o.l}</option>`).join('')}</select></div>`;
+}
+function connSection(node){
+  const nc=connections.filter(c=>c.from.id===node.id||c.to.id===node.id);
+  let h=`<div class="prop-group"><div class="pgl">Connections (${nc.length}) ${hq('Lists all connections for this node. Click any row to delete that connection. Use the Connect tool (C) in the toolbar to add new connections.')}</div>`;
+  if(!nc.length)h+=`<div style="font-size:11px;color:var(--text2);padding:4px 0">None — use Connect tool.</div>`;
+  else nc.forEach(c=>{const isFrom=c.from.id===node.id,other=isFrom?c.to:c.from,clr=CC[c.type]||'#aaa';h+=`<div class="conn-item" onclick="deleteConn(${c.id})"><div class="conn-dot" style="background:${clr}"></div><div><div>${isFrom?'→':'←'} ${other.id}</div><div class="conn-type">${c.type}</div></div><div class="conn-del">×</div></div>`;});
+  return h+'</div>';
+}
+function upd(nid,key,val){const node=nodes.find(n=>n.id===nid);if(!node)return;node.props[key]=val;node.marker.setTooltipContent(`<b>${node.props.name||node.id}</b><br><span style="color:#8b949e;font-size:10px">${TM[node.type].label}</span>`);refreshLabel(node);}
+function updRefresh(nid,key,val){upd(nid,key,val);const node=nodes.find(n=>n.id===nid);if(node)renderProps(node);}
+
+// ══════════════════════════════════════════════════
+// RENDER PROPERTIES
+// ══════════════════════════════════════════════════
+function renderProps(node){
+  document.getElementById('props-empty').style.display='none';
+  const content=document.getElementById('props-content');content.style.display='block';content.innerHTML='';
+  const meta=TM[node.type];
+  const hdr=document.createElement('div');hdr.className='node-header';
+  hdr.innerHTML=`<div class="node-type-badge" style="background:${meta.color}22;border:1px solid ${meta.color}44">${mSVG(node.type)}</div><div><div class="node-title">${node.props.name||node.id}</div><div class="node-id">${node.type.toUpperCase()} · ${node.varName}</div></div>`;
+  content.appendChild(hdr);
+  const form=document.createElement('div');
+
+  // ── SUBBASIN ─────────────────────────────────────
+  if(node.type==='subbasin'){
+    const tm=node.props.transformMethod||'SCS',lm=node.props.lossMethod||'SCS',bm=node.props.BFSMethod||'';
+    const dw=connections.filter(c=>c.from.id===node.id&&c.type==='downstream');
+    form.innerHTML=`
+    <div class="prop-group"><div class="pgl">Basic</div>
+      ${pi(node,'name','name','Subbasin name','opt',false,'Descriptive label for this sub-basin. Used in createSubbasin(name=...).')}
+      ${pi(node,'Area','Area (Km²)','Drainage area','req',false,'Drainage area of the sub-basin in square kilometres. Required for unit hydrograph scaling.')}
+      ${pi(node,'delayInflow','delayInflow (time steps)','e.g. 2','opt',false,'Integer: number of simulation time steps by which to delay the inflow time series before adding it to the routed hydrograph.')}
+    </div>
+    <div class="prop-group">
+      <div class="pgl">precipitation (mm) <span class="badge badge-ts">time series</span> ${hq('Precipitation hyetograph for this sub-basin. One value per simulation time step in millimetres (mm). This series drives the rainfall-runoff transformation. Required unless only direct inflow is used.')}</div>
+      ${tsWidget(node.id,'precipitation','mm')}
+    </div>
+    <div class="prop-group">
+      <div class="pgl">inflow (cms) <span class="badge badge-opt">optional</span> ${hq('Direct lateral inflow or observed hydrograph in cubic metres per second (cms). Added to the computed runoff before routing downstream. Useful for ungauged tributary contributions.')}</div>
+      ${tsWidget(node.id,'inflow','cms')}
+    </div>
+    <div class="prop-group">
+      <div class="pgl">Abstraction <span class="badge badge-opt">optional</span> ${hq('Simple initial-abstraction losses before infiltration methods are applied. canopyAbstraction intercepts rainfall in the canopy; surfaceAbstraction fills micro-depressions. Both in mm. Applied before lossMethod calculations.')}</div>
+      ${pi(node,'canopyAbstraction','canopyAbstraction (mm)','e.g. 2','opt',false,'Depth of interception by vegetation canopy (mm). Default: 0.')}
+      ${pi(node,'surfaceAbstraction','surfaceAbstraction (mm)','e.g. 3.5','opt',false,'Depth of surface depression storage (mm). Default: 0.')}
+    </div>
+    <div class="prop-group">
+      <div class="pgl">Transform Method ${hq('Rainfall-to-runoff transformation method. SCS: unit hydrograph based on curve number and lag time. snyder: synthetic unit hydrograph using watershed morphology parameters. user: supply custom UH ordinates as a table.')}</div>
+      ${psel(node,'transformMethod','transformMethod',[{v:'SCS',l:'SCS — unit hydrograph'},{v:'snyder',l:'snyder — synthetic UH'},{v:'user',l:'user — custom UH table'}],'The method used to transform excess rainfall into a direct runoff hydrograph. Changing this switches the visible parameter group below.')}
+    </div>
+    <div class="cond-section ${tm==='SCS'?'':'hidden'}" id="tm-scs-${node.id}">
+      <div class="prop-group">
+        <div class="pgl">transformParams — SCS ${hq('SCS Unit Hydrograph parameters. Tlag is the lag time from the centroid of rainfall excess to peak of runoff, in hours. It controls the timing and shape of the UH.')}</div>
+        ${pi(node,'Tlag','Tlag (Hours)','e.g. 4','req',false,'Time lag from centroid of rainfall excess to peak of the unit hydrograph (Hours). Key timing parameter for the SCS UH method.')}
+      </div>
+    </div>
+    <div class="cond-section ${tm==='snyder'?'':'hidden'}" id="tm-snyder-${node.id}">
+      <div class="prop-group">
+        <div class="pgl">transformParams — Snyder ${hq('Snyder Synthetic Unit Hydrograph parameters. Ct and Cp are empirical coefficients; L is the main channel length (km); Lc is the distance from basin outlet to centroid of the basin (km).')}</div>
+        ${pi(node,'Ct','Ct','e.g. 1.5','req',false,'Snyder coefficient related to watershed slope and shape. Typical range: 1.8–2.2 for mountainous terrain, lower for flat basins.')}
+        ${pi(node,'Cp','Cp','e.g. 0.17','req',false,'Snyder peaking coefficient. Controls the UH peak. Typical range: 0.4–0.8 for non-storage basins.')}
+        ${pi(node,'L','L (km)','Main channel length','req',false,'Length of the longest watercourse from basin outlet to basin divide, in kilometres.')}
+        ${pi(node,'Lc','Lc (km)','Centroid distance','req',false,'Distance along the main channel from the outlet to the point nearest the basin centroid, in kilometres.')}
+      </div>
+    </div>
+    <div class="cond-section ${tm==='user'?'':'hidden'}" id="tm-user-${node.id}">
+      <div class="prop-group">
+        <div class="pgl">UH — user-defined table <span class="badge badge-ts">matrix</span> ${hq('User-defined unit hydrograph ordinates as a two-column table. Column 1: time in hours. Column 2: flow rate in cms. RHMS performs convolution of rainfall excess with this UH. The hydrograph should begin and end at zero flow.')}</div>
+        <div class="prop-hint" style="margin-bottom:5px">col 1 = time (Hr) · col 2 = flow rate (cms)</div>
+        ${matrixWidget(node.id,'UH','Time (Hr)','Flow (cms)')}
+      </div>
+    </div>
+    <div class="prop-group">
+      <div class="pgl">Loss Method ${hq('Method for computing rainfall losses (infiltration + interception) to determine excess rainfall. SCS: curve number method. horton: Horton infiltration equation requiring f0, f1, k, and time interval.')}</div>
+      ${psel(node,'lossMethod','lossMethod',[{v:'SCS',l:'SCS — curve number'},{v:'horton',l:'horton — Horton infiltration'}],'Loss method determines what fraction of rainfall becomes runoff. SCS is simpler; Horton provides a time-varying infiltration capacity curve.')}
+    </div>
+    <div class="cond-section ${lm==='SCS'?'':'hidden'}" id="lm-scs-${node.id}">
+      <div class="prop-group">
+        <div class="pgl">lossParams — SCS <span class="badge badge-loss">loss</span> ${hq('SCS Curve Number loss parameters. CN controls how much of the precipitation becomes runoff. Higher CN = more runoff. imperviousness (%) accounts for impervious cover within the sub-basin.')}</div>
+        ${pi(node,'CN','CN (curve number)','e.g. 70','req',false,'SCS Curve Number (dimensionless, 1–100). Higher values indicate less infiltration. Based on hydrologic soil group and land use.')}
+        ${pi(node,'imperviousness','imperviousness (%)','e.g. 0','opt',false,'Percentage of the sub-basin that is impervious (roads, rooftops, etc.). Default: 0. Runoff from impervious areas bypasses the CN equation.')}
+      </div>
+    </div>
+    <div class="cond-section ${lm==='horton'?'':'hidden'}" id="lm-horton-${node.id}">
+      <div class="prop-group">
+        <div class="pgl">lossParams — Horton <span class="badge badge-loss">loss</span> ${hq('Horton infiltration parameters. f0 is initial (maximum) infiltration rate; f1 (fc) is the final (minimum) steady-state rate; k controls the decay rate from f0 to f1. timeInterval is the simulation step in seconds.')}</div>
+        ${pi(node,'f0','f0 (mm/hr)','Initial infiltration rate','req',false,'Maximum infiltration capacity at the start of a rainfall event (mm/hr). Typically 25–250 mm/hr for sandy to clay soils.')}
+        ${pi(node,'f1','f1 / fc (mm/hr)','Final steady-state rate','req',false,'Minimum (steady-state) infiltration capacity after prolonged rainfall (mm/hr). Approximately equal to saturated hydraulic conductivity.')}
+        ${pi(node,'k_horton','k (1/hr)','Decay coefficient','req',false,'Decay coefficient controlling how quickly infiltration capacity decreases from f0 toward f1. Higher k = faster decay.')}
+        ${pi(node,'timeIntervalHorton','timeInterval (seconds)','e.g. 3600','req',false,'Simulation time step in seconds. Required by Horton method to integrate the infiltration equation over each interval.')}
+      </div>
+    </div>
+    <div class="prop-group">
+      <div class="pgl">Baseflow Separation <span class="badge badge-opt">optional</span> ${hq('Baseflow separation method adds a slow-response baseflow component to the direct runoff hydrograph. Leave blank to omit baseflow. Available methods: nathan, chapman, eckhardt (digital filter methods), and recession (exponential decay).')}</div>
+      ${psel(node,'BFSMethod','BFSMethod (optional)',[{v:'',l:'— none —'},{v:'nathan',l:'nathan — digital filter'},{v:'chapman',l:'chapman — digital filter'},{v:'eckhardt',l:'eckhardt — recursive filter'},{v:'recession',l:'recession — exponential decay'}],'Select a baseflow separation method. nathan, chapman, and eckhardt are digital filter approaches; recession models baseflow as exponential decay. Leave as "— none —" to suppress baseflow.')}
+    </div>
+    <div class="cond-section ${bm&&bm!==''?'':'hidden'}" id="bfs-params-${node.id}">
+      <div class="prop-group">
+        <div class="pgl">BFSParams ${hq('Parameters for the selected baseflow separation method. alpha [0,1]: filter coefficient for nathan/chapman/eckhardt — higher alpha = more baseflow. BFI [0,1]: maximum baseflow index required for eckhardt only. k [1,∞]: recession constant for recession method. timeInterval: simulation step in days (recession only).')}</div>
+        <div class="cond-section ${['nathan','chapman','eckhardt'].includes(bm)?'':'hidden'}" id="bfs-alpha-${node.id}">
+          ${pi(node,'alpha','alpha [0, 1]','e.g. 0.6','req',false,'Digital filter parameter. Controls the fraction of streamflow attributed to baseflow. Typically calibrated from streamflow records. Higher alpha = more baseflow.')}
+        </div>
+        <div class="cond-section ${bm==='eckhardt'?'':'hidden'}" id="bfs-bfi-${node.id}">
+          ${pi(node,'BFI','BFI [0, 1]','e.g. 0.3','req',false,'Maximum Baseflow Index for the Eckhardt recursive filter. Defined as the long-term ratio of baseflow to total streamflow. Typically 0.25–0.75.')}
+        </div>
+        <div class="cond-section ${bm==='recession'?'':'hidden'}" id="bfs-rec-${node.id}">
+          ${pi(node,'k_bfs','k — recession constant','e.g. 1.1','req',false,'Recession constant controlling baseflow decay rate. Must be >1 (usually 1.05–1.5). The smaller the value above 1, the slower the recession.')}
+          ${pi(node,'timeIntervalBFS','timeInterval (seconds)','e.g. 86400','req',false,'Time step in seconds. Required by the recession method to compute daily equivalent recession factors.')}
+        </div>
+      </div>
+    </div>
+    ${connSection(node)}`;
+    content.appendChild(form);delBtn(content,node,'Subbasin');return;
+  }
+
+  // ── REACH ─────────────────────────────────────
+  if(node.type==='reach'){
+    const rm=node.props.routingMethod||'muskingum';
+    form.innerHTML=`
+    <div class="prop-group"><div class="pgl">Basic ${hq('A reach routes a hydrograph along a river channel. The Muskingum method uses empirical storage parameters; Muskingum-Cunge uses physical channel geometry and provides a more physically based routing.')}</div>
+      ${pi(node,'name','name','Reach name','opt',false,'Descriptive label for this channel reach. Used in createReach(name=...).')}
+      ${pi(node,'delayInflow','delayInflow (time steps)','e.g. 1','opt',false,'Integer number of time steps to delay any direct lateral inflow before adding to the reach inflow.')}
+    </div>
+    <div class="prop-group">
+      <div class="pgl">Routing Method ${hq('Channel routing technique. muskingum: uses K (travel time, hours) and X (weighting factor). muskingumcunge: uses physical cross-section geometry (width, side slope, slope, Manning n, length) — more accurate for spatially varied channels.')}</div>
+      ${psel(node,'routingMethod','routingMethod',[{v:'muskingum',l:'muskingum — KX parameters'},{v:'muskingumcunge',l:'muskingumcunge — channel geometry'}],'Changing this switches the visible routing parameter group below.')}
+    </div>
+    <div class="cond-section ${rm==='muskingum'?'':'hidden'}" id="rm-musk-${node.id}">
+      <div class="prop-group">
+        <div class="pgl">routingParams — Muskingum <span class="badge badge-routing">routing</span> ${hq('Muskingum parameters: K is the travel time through the reach (hours) — related to reach length and celerity. X is the dimensionless weighting factor [0, 0.5] — X=0 is pure reservoir routing; X=0.5 is pure translation with no attenuation.')}</div>
+        ${pi(node,'k_musk','k (hours)','e.g. 3','req',false,'Muskingum travel time constant in hours. Approximated as reach length divided by wave celerity. Typically 1–12 hours for river reaches.')}
+        ${pi(node,'x_musk','x [0, 0.5]','e.g. 0.2','req',false,'Muskingum weighting factor (dimensionless). X=0: maximum attenuation (reservoir-like). X=0.5: no attenuation. Typical rivers: 0.1–0.3.')}
+      </div>
+    </div>
+    <div class="cond-section ${rm==='muskingumcunge'?'':'hidden'}" id="rm-cunge-${node.id}">
+      <div class="prop-group">
+        <div class="pgl">routingParams — Muskingum-Cunge <span class="badge badge-routing">routing</span> ${hq('Physical channel geometry parameters for the Muskingum-Cunge method. These define the trapezoidal cross-section and channel grade, allowing routing parameters to vary with discharge level.')}</div>
+        ${pi(node,'bedWidth','bedWidth (m)','Channel bottom width','req',false,'Bottom width of the trapezoidal channel cross-section, in metres.')}
+        ${pi(node,'sideSlope','sideSlope (m/m)','Horizontal:vertical','req',false,'Side slope of the trapezoidal cross-section as H:V ratio (metres per metre). E.g. 2 means 2 m horizontal per 1 m vertical.')}
+        ${pi(node,'channelSlope','channelSlope (m/m)','Bed slope','req',false,'Longitudinal bed slope of the channel, dimensionless (m/m). E.g. 0.001 = 1 m drop per 1000 m.')}
+        ${pi(node,'manningRoughness','manningRoughness','Manning n','req',false,"Manning's roughness coefficient n. Typical values: 0.01–0.02 (smooth concrete), 0.025–0.05 (natural earthen channels), 0.05–0.1 (heavily vegetated).")}
+        ${pi(node,'riverLength','riverLength (km)','Reach length','req',false,'Total length of this channel reach in kilometres.')}
+      </div>
+    </div>
+    <div class="prop-group">
+      <div class="pgl">inflow (cms) <span class="badge badge-opt">optional</span> ${hq('Direct lateral/tributary inflow in cms, added at each time step to the upstream hydrograph before routing. Useful for representing ungauged side tributaries.')}</div>
+      ${tsWidget(node.id,'inflow','cms')}
+    </div>
+    ${connSection(node)}`;
+    content.appendChild(form);delBtn(content,node,'Reach');return;
+  }
+
+  // ── RESERVOIR ─────────────────────────────────
+  if(node.type==='reservoir'){
+    form.innerHTML=`
+    <div class="prop-group"><div class="pgl">Basic ${hq('A reservoir attenuates flood hydrographs by storing water. RHMS uses the Modified Puls (level-pool routing) method, interpolating from the storage-elevation and discharge-elevation rating curves.')}</div>
+      ${pi(node,'name','name','Reservoir name','opt',false,'Descriptive label for this reservoir. Used in createReservoir(name=...).')}
+      ${pi(node,'initialStorage','initialStorage (MCM)','Default: capacity','opt',false,'Initial storage volume at the start of the simulation in MCM (Million Cubic Metres). If omitted, RHMS initialises to full capacity.')}
+      ${pi(node,'delayInflow','delayInflow (time steps)','e.g. 1','opt',false,'Integer number of time steps to delay any direct inflow before routing through the reservoir.')}
+    </div>
+    <div class="prop-group">
+      <div class="pgl">geometry — capacity ${hq('Maximum storage capacity of the reservoir in MCM. This defines the upper bound of storage; the routing will never exceed this value.')}</div>
+      ${pi(node,'capacity','capacity (MCM)','e.g. 800','req',false,'Maximum active storage volume of the reservoir in MCM. Required.')}
+    </div>
+    <div class="prop-group">
+      <div class="pgl">geometry — storageElevationCurve <span class="badge badge-ts">matrix</span> ${hq('Rating curve linking reservoir storage volume (MCM) to water surface elevation (masl = metres above sea level). Column 1: storage volume (MCM). Column 2: corresponding elevation (masl). RHMS interpolates between rows. At least 2 rows are required.')}</div>
+      <div class="prop-hint" style="margin-bottom:5px">col 1 = storage volume (MCM) · col 2 = elevation (masl)</div>
+      ${matrixWidget(node.id,'storageElevationCurve','Volume (MCM)','Elevation (masl)')}
+    </div>
+    <div class="prop-group">
+      <div class="pgl">geometry — dischargeElevationCurve <span class="badge badge-ts">matrix</span> ${hq('Spillway/outlet rating curve linking water surface elevation (masl) to outflow discharge (cms). Column 1: outflow discharge (cms). Column 2: corresponding elevation (masl). RHMS uses this to determine release given the current storage head.')}</div>
+      <div class="prop-hint" style="margin-bottom:5px">col 1 = discharge (cms) · col 2 = elevation (masl)</div>
+      ${matrixWidget(node.id,'dischargeElevationCurve','Discharge (cms)','Elevation (masl)')}
+    </div>
+    <div class="prop-group">
+      <div class="pgl">inflow (cms) <span class="badge badge-opt">optional</span> ${hq('Direct inflow in cms added to the reservoir at each time step — for example, a spring or groundwater contribution not represented as an upstream reach.')}</div>
+      ${tsWidget(node.id,'inflow','cms')}
+    </div>
+    ${connSection(node)}`;
+    content.appendChild(form);delBtn(content,node,'Reservoir');return;
+  }
+
+  // ── JUNCTION ──────────────────────────────────
+  if(node.type==='junction'){
+    form.innerHTML=`
+    <div class="prop-group"><div class="pgl">Basic ${hq('A junction is a confluence point that collects outflows from multiple upstream nodes (reaches, subbasins, reservoirs, diversions) and sums them into a single outflow hydrograph routed to the downstream object.')}</div>
+      ${pi(node,'name','name','Junction name','opt',false,'Descriptive label. Used in createJunction(name=...).')}
+      ${pi(node,'delayInflow','delayInflow (time steps)','e.g. 1','opt',false,'Integer number of time steps to delay any direct lateral inflow before adding to the confluenced hydrograph.')}
+    </div>
+    <div class="prop-group">
+      <div class="pgl">inflow (cms) <span class="badge badge-opt">optional</span> ${hq('Direct lateral inflow in cms added at the junction — e.g. a point source discharge or ungauged tributary contribution.')}</div>
+      ${tsWidget(node.id,'inflow','cms')}
+    </div>
+    ${connSection(node)}`;
+    content.appendChild(form);delBtn(content,node,'Junction');return;
+  }
+
+  // ── DIVERSION ─────────────────────────────────
+  if(node.type==='diversion'){
+    const dv=connections.filter(c=>c.from.id===node.id&&c.type==='divertTo');
+    const dw=connections.filter(c=>c.from.id===node.id&&c.type==='downstream');
+    form.innerHTML=`
+    <div class="prop-group"><div class="pgl">Basic ${hq('A diversion structure (weir, headworks, pump) splits incoming flow into two paths: up to capacity (cms) is diverted to a divertTo object (canal, another reach, a reservoir); the remainder passes downstream unchanged.')}</div>
+      ${pi(node,'name','name','Diversion name','opt',false,'Descriptive label. Used in createDiversion(name=...).')}
+      ${pi(node,'capacity','capacity (cms)','Maximum diversion rate','req',false,'Maximum instantaneous diversion rate in cubic metres per second (cms). Flow in excess of capacity passes downstream unaffected.')}
+    </div>
+    <div class="prop-group"><div class="pgl">Routing Targets ${hq('A Diversion requires two outgoing connections: "downstream" (excess flow passing the structure) and "divertTo" (the diverted volume). Use the Connect tool to set both. The divertTo target must be declared in the basin before the diversion.')}</div>
+      <div style="font-size:11px;color:${dw.length?'#39d353':'var(--text2)'};padding:2px 0;margin-bottom:4px">
+        downstream: ${dw.length?`<b style="color:var(--text)">${dw[0].to.id}</b>`:'not set — use <b>Connect → downstream</b>'}
+      </div>
+      <div style="font-size:11px;color:${dv.length?'#39d353':'var(--text2)'};padding:2px 0">
+        divertTo: ${dv.length?`<b style="color:var(--text)">${dv[0].to.id}</b>`:'not set — use <b>Connect → divertTo</b>'}
+      </div>
+    </div>
+    ${connSection(node)}`;
+    content.appendChild(form);delBtn(content,node,'Diversion');return;
+  }
+  content.appendChild(form);
+}
+
+function delBtn(container,node,label){
+  const b=document.createElement('button');b.className='del-node-btn';b.textContent=`Delete ${label}`;b.onclick=()=>deleteNode(node);container.appendChild(b);
+}
+
+// ══════════════════════════════════════════════════
+// NODES LIST
+// ══════════════════════════════════════════════════
+function updateNodesList(){
+  const list=document.getElementById('nodes-list');
+  if(!nodes.length){list.innerHTML=`<div style="padding:20px;text-align:center;color:var(--text2);font-size:12px">No objects yet.<br>Select a tool and click the map.</div>`;return;}
+  list.innerHTML=nodes.map(n=>{
+    const meta=TM[n.type],isSel=selectedNode&&selectedNode.id===n.id,cc=connections.filter(c=>c.from.id===n.id||c.to.id===n.id).length;
+    return `<div class="nli ${isSel?'sel':''}" onclick="selectNode(nodes.find(x=>x.id==='${n.id}'))"><div class="nli-dot" style="background:${meta.color}"></div><div style="flex:1">${n.props.name||n.id}</div><div style="font-size:10px;color:var(--text2);margin-right:4px">${cc}c</div><div class="nli-id">${n.id}</div></div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════
+// R CODE GENERATION
+// ══════════════════════════════════════════════════
+function toRvec(arr){if(!arr||!arr.length)return null;const v=arr.filter(x=>x!==null&&x!==undefined&&x!=='');return v.length?`c(${v.join(',')})`:`null`;}
+function toRmat2col(arr,c1,c2){if(!arr||!arr.length)return null;const r=arr.filter(x=>x&&x[0]!==null&&x[1]!==null);if(!r.length)return null;return `data.frame(${c1}=c(${r.map(x=>x[0]).join(',')}),${c2}=c(${r.map(x=>x[1]).join(',')}))`;}
+
+function generateCode(){
+  const basinName=document.getElementById('sim-name').value||'MyBasin';
+  const start=document.getElementById('sim-start').value;
+  const end=document.getElementById('sim-end').value;
+  const by=parseInt(document.getElementById('sim-by').value)||3600;
+  const L=[];
+
+  L.push(`# ═══════════════════════════════════════════════════════`);
+  L.push(`# RHMS Basin — generated by RHMS Builder`);
+  L.push(`# Developer: Rezgar Arabzadeh, University of Waterloo, 2026`);
+  L.push(`# ═══════════════════════════════════════════════════════`);
+  L.push(`library(RHMS)\n`);
+  L.push(`# ── Simulation period`);
+  L.push(`simulation <- list(start='${start}', end='${end}', by=${by})\n`);
+  L.push(`# ── Node constructors (topologically sorted: downstream-first)`);
+
+  // Topological sort: downstream targets must be declared BEFORE their upstream sources
+  const ord=topoSort(nodes,connections);
+
+  ord.forEach(n=>{
+    const dw=connections.filter(c=>c.from.id===n.id&&c.type==='downstream');
+    const dv=connections.filter(c=>c.from.id===n.id&&c.type==='divertTo');
+    const downVar=dw.length?dw[0].to.varName:null;
+    const divertVar=dv.length?dv[0].to.varName:null;
+    L.push(`# --- ${n.id} : ${TM[n.type].label}`);
+
+    // SUBBASIN
+    if(n.type==='subbasin'){
+      const Q=toRvec(n.props.precipitation),inf=toRvec(n.props.inflow);
+      const tm=n.props.transformMethod||'SCS',lm=n.props.lossMethod||'SCS',bm=n.props.BFSMethod||'';
+      const a=[`  name='${n.props.name||n.id}'`];
+      if(Q)a.push(`  precipitation=${Q}`);
+      a.push(`  Area=${n.props.Area||0}`);
+      if(inf)a.push(`  inflow=${inf}`);
+      if(n.props.delayInflow)a.push(`  delayInflow=${n.props.delayInflow}`);
+      if(downVar)a.push(`  downstream=${downVar}`);
+      a.push(`  transformMethod='${tm}'`);
+      a.push(`  lossMethod='${lm}'`);
+      if(bm)a.push(`  BFSMethod='${bm}'`);
+      // transformParams
+      if(tm==='SCS'){
+        a.push(`  transformParams=list(Tlag=${n.props.Tlag||0})`);
+      }else if(tm==='snyder'){
+        a.push(`  transformParams=list(Cp=${n.props.Cp||0},Ct=${n.props.Ct||0},L=${n.props.L||0},Lc=${n.props.Lc||0})`);
+      }else if(tm==='user'){
+        const uh=toRmat2col(n.props.UH,'t','q');
+        a.push(`  UH=${uh||'data.frame(t=c(),q=c())'}`);
+      }
+      // lossParams
+      if(lm==='SCS'){
+        const lp=[`CN=${n.props.CN||70}`];if(n.props.imperviousness)lp.push(`imperviousness=${n.props.imperviousness}`);
+        a.push(`  lossParams=list(${lp.join(',')})`);
+      }else if(lm==='horton'){
+        a.push(`  lossParams=list(f0=${n.props.f0||0},f1=${n.props.f1||0},k=${n.props.k_horton||0},timeInterval=${n.props.timeIntervalHorton||by})`);
+      }
+      // abstractionParams
+      if(n.props.canopyAbstraction||n.props.surfaceAbstraction){
+        const ap=[];if(n.props.canopyAbstraction)ap.push(`canopyAbstraction=${n.props.canopyAbstraction}`);if(n.props.surfaceAbstraction)ap.push(`surfaceAbstraction=${n.props.surfaceAbstraction}`);
+        a.push(`  abstractionParams=list(${ap.join(',')})`);
+      }
+      // BFSParams
+      if(bm){
+        const bp=[];
+        if(['nathan','chapman','eckhardt'].includes(bm))bp.push(`alpha=${n.props.alpha||0}`);
+        if(bm==='eckhardt')bp.push(`BFI=${n.props.BFI||0}`);
+        if(bm==='recession'){bp.push(`k=${n.props.k_bfs||1.1}`);bp.push(`timeInterval=${n.props.timeIntervalBFS||86400}`);}
+        if(bp.length)a.push(`  BFSParams=list(${bp.join(',')})`);
+      }
+      L.push(`${n.varName} <- createSubbasin(\n${a.join(',\n')}\n)\n`);
+    }
+
+    // REACH
+    else if(n.type==='reach'){
+      const inf=toRvec(n.props.inflow);
+      const rm=n.props.routingMethod||'muskingum';
+      const a=[`  name='${n.props.name||n.id}'`,`  routingMethod='${rm}'`];
+      if(rm==='muskingum'){
+        a.push(`  routingParams=list(k=${n.props.k_musk||0},x=${n.props.x_musk||0})`);
+      }else{
+        a.push(`  routingParams=list(bedWith=${n.props.bedWidth||0},sideSlope=${n.props.sideSlope||0},channelSlope=${n.props.channelSlope||0},manningRoughness=${n.props.manningRoughness||0},riverLength=${n.props.riverLength||0})`);
+      }
+      if(inf)a.push(`  inflow=${inf}`);
+      if(n.props.delayInflow)a.push(`  delayInflow=${n.props.delayInflow}`);
+      if(downVar)a.push(`  downstream=${downVar}`);
+      L.push(`${n.varName} <- createReach(\n${a.join(',\n')}\n)\n`);
+    }
+
+    // RESERVOIR
+    else if(n.type==='reservoir'){
+      const inf=toRvec(n.props.inflow);
+      const sec=toRmat2col(n.props.storageElevationCurve,'s','h');
+      const dec=toRmat2col(n.props.dischargeElevationCurve,'q','h');
+      const a=[`  name='${n.props.name||n.id}'`];
+      const gp=[`    capacity=${n.props.capacity||0}`];
+      if(sec)gp.push(`    storageElevationCurve=${sec}`);
+      if(dec)gp.push(`    dischargeElevationCurve=${dec}`);
+      a.push(`  geometry=list(\n${gp.join(',\n')}\n  )`);
+      if(n.props.initialStorage)a.push(`  initialStorage=${n.props.initialStorage}`);
+      if(inf)a.push(`  inflow=${inf}`);
+      if(n.props.delayInflow)a.push(`  delayInflow=${n.props.delayInflow}`);
+      if(downVar)a.push(`  downstream=${downVar}`);
+      L.push(`${n.varName} <- createReservoir(\n${a.join(',\n')}\n)\n`);
+    }
+
+    // JUNCTION
+    else if(n.type==='junction'){
+      const inf=toRvec(n.props.inflow);
+      const a=[`  name='${n.props.name||n.id}'`];
+      if(downVar)a.push(`  downstream=${downVar}`);
+      if(inf)a.push(`  inflow=${inf}`);
+      if(n.props.delayInflow)a.push(`  delayInflow=${n.props.delayInflow}`);
+      L.push(`${n.varName} <- createJunction(\n${a.join(',\n')}\n)\n`);
+    }
+
+    // DIVERSION
+    else if(n.type==='diversion'){
+      const a=[`  name='${n.props.name||n.id}'`,`  capacity=${n.props.capacity||0}`];
+      if(downVar)a.push(`  downstream=${downVar}`);
+      if(divertVar)a.push(`  divertTo=${divertVar}`);
+      L.push(`${n.varName} <- createDiversion(\n${a.join(',\n')}\n)\n`);
+    }
+  });
+
+  L.push(`# ── Create basin`);
+  L.push(`${basinName} <- createBasin(name='${basinName}', simulation=simulation)\n`);
+  L.push(`# ── Add objects to basin`);
+  ord.forEach(n=>L.push(`${basinName} <- addObjectToBasin(${n.varName}, ${basinName})`));
+  L.push('');
+  L.push(`\n# ── Simulate`);
+  L.push(`result <- sim(${basinName})`);
+  L.push(`plot(result)`);
+  L.push(`summary(result)`);
+  L.push(`\n# ── Optional: tune model parameters (particle swarm optimisation)`);
+  L.push(`# tune(`);
+  L.push(`#   object         = ${basinName},`);
+  L.push(`#   targetObject   = <junction_or_gauge_node>,`);
+  L.push(`#   decisionObjects= list(<subbasin_or_reach>, ...),`);
+  L.push(`#   observationTS  = <observed_flow_vector_cms>,`);
+  L.push(`#   plot           = TRUE`);
+  L.push(`# )`);
+
+  document.getElementById('code-output').value=L.join('\n');
+}
+
+// Topological sort — downstream targets declared first
+function topoSort(nodes,conns){
+  const nodeMap={};nodes.forEach(n=>nodeMap[n.id]=n);
+  const prereq={};nodes.forEach(n=>prereq[n.id]=new Set());
+  conns.forEach(c=>{
+    // downstream: from A to B means B must come before A
+    // divertTo:   from A to C means C must come before A
+    if(c.type==='downstream'||c.type==='divertTo'){
+      if(prereq[c.from.id])prereq[c.from.id].add(c.to.id);
+    }
+  });
+  const successors={};nodes.forEach(n=>successors[n.id]=[]);
+  nodes.forEach(n=>{prereq[n.id].forEach(pid=>{if(successors[pid])successors[pid].push(n.id);});});
+  const inDeg={};nodes.forEach(n=>inDeg[n.id]=prereq[n.id].size);
+  const queue=nodes.filter(n=>inDeg[n.id]===0).map(n=>n.id);
+  const result=[];
+  while(queue.length){
+    const id=queue.shift();result.push(nodeMap[id]);
+    (successors[id]||[]).forEach(depId=>{inDeg[depId]--;if(inDeg[depId]===0)queue.push(depId);});
+  }
+  nodes.forEach(n=>{if(!result.find(r=>r.id===n.id))result.push(n);});
+  return result;
+}
+
+function copyCode(){navigator.clipboard.writeText(document.getElementById('code-output').value).then(()=>{const b=event.target;b.textContent='Copied!';setTimeout(()=>b.textContent='Copy',1500);});}
+function showCode(){switchTab('code');generateCode();}
+
+// ══════════════════════════════════════════════════
+// ABOUT + HELP MODALS
+// ══════════════════════════════════════════════════
+function openAbout(){document.getElementById('about-modal').classList.add('open');}
+function closeAbout(e){if(!e||e.target===document.getElementById('about-modal'))document.getElementById('about-modal').classList.remove('open');}
+
+let _helpIdx=0;
+const HELP_PAGES=[
+/* 0 — Interface */
+`<div class="help-section">
+  <div class="help-section-title">Keyboard Shortcuts</div>
+  ${[['V','Select mode — click nodes to select, drag to reposition'],['B','Subbasin tool'],['R','Reach tool'],['S','Reservoir tool'],['J','Junction tool'],['D','Diversion tool'],['C','Connect mode — click source then target node'],['Esc','Return to Select mode'],['Delete / Backspace','Delete the currently selected node and all its connections']].map(([k,v])=>`<div class="help-row"><span class="help-key"><span class="help-kbd">${k}</span></span><span class="help-val">${v}</span></div>`).join('')}
+</div>
+<div class="help-section">
+  <div class="help-section-title">Top Bar Controls</div>
+  ${[['Basin name','Name passed to createBasin() and all addObjectToBasin() calls'],['Start / End','Simulation period in YYYY-MM-DD'],['by (s)','Time step in seconds (e.g. 3600 = 1 h, 7200 = 2 h, 86400 = 1 day)'],['Map BG','Toggle dark CartoDB / light OpenStreetMap tiles'],['Show Labels','Floating name labels on all nodes'],['Clear','Remove all nodes and connections after confirmation'],['R Code','Generate and open the complete RHMS R script']].map(([k,v])=>`<div class="help-row"><span class="help-key">${k}</span><span class="help-val">${v}</span></div>`).join('')}
+</div>`,
+
+/* 1 — Objects */
+`<div class="help-section">
+  <div class="help-section-title">Object Types &amp; RHMS Constructors</div>
+  ${[['#66bb6a','Subbasin','createSubbasin()','A watershed unit that converts precipitation into runoff using transform (SCS / Snyder / user UH), loss (SCS / Horton), and optional baseflow separation methods.'],['#26c6da','Reach','createReach()','A river channel segment. Routes inflow hydrographs using Muskingum (K, X) or Muskingum-Cunge (physical geometry) methods.'],['#5c6bc0','Reservoir','createReservoir()','A storage structure with elevation-area-discharge rating curves. Performs level-pool flood routing (Modified Puls method).'],['#bdbdbd','Junction','createJunction()','Confluence point. Sums hydrographs from multiple upstream objects and routes the total to one downstream target.'],['#ffa726','Diversion','createDiversion()','Diversion structure. Splits flow between a divertTo target (canal / reservoir) and a downstream pass-through up to a capacity limit in cms.']].map(([c,name,fn,desc])=>`<div class="help-type-row" style="border-color:${c}33;background:${c}06"><div class="help-type-dot" style="background:${c}"></div><div><div class="help-type-name">${name}</div><div class="help-type-fn" style="color:${c}">${fn}</div><div class="help-type-desc">${desc}</div></div></div>`).join('')}
+</div>`,
+
+/* 2 — Properties */
+`<div class="help-section">
+  <div class="help-section-title">Using the Properties Panel</div>
+  <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:14px">
+    Click any map node to open Properties. Fields match RHMS constructor arguments. Labels show <span class="help-badge hb-req">required</span> or <span class="help-badge hb-opt">optional</span> status. Hover any <b style="color:var(--accent)">?</b> badge for a detailed explanation of that argument.
+  </div>
+</div>
+<div class="help-section">
+  <div class="help-section-title">Subbasin Method Panels</div>
+  <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:8px">The Subbasin properties show <b>three conditional sections</b> that animate when you change the method dropdowns: <b>transformParams</b> (SCS → Tlag; snyder → Cp, Ct, L, Lc; user → UH table), <b>lossParams</b> (SCS → CN; horton → f0, f1, k, Δt), and <b>BFSParams</b> (alpha, BFI, k, Δt depending on the chosen method). Only the active section's parameters appear in the generated R code.</div>
+</div>
+<div class="help-section">
+  <div class="help-section-title">Time Series Inputs <span class="help-badge hb-ts">time series</span></div>
+  ${[['+&nbsp;Cell','Append one blank cell'],['+12 / +24','Append 12 or 24 cells in one click'],['⬆ CSV/TXT','Import a flat list of numbers — any delimiter. All numbers found in order are loaded.'],['× on hover','Hover any cell, then click × to remove it'],['Index row','Grey 1-based position numbers above each cell']].map(([k,v])=>`<div class="help-row"><span class="help-key">${k}</span><span class="help-val">${v}</span></div>`).join('')}
+</div>
+<div class="help-section">
+  <div class="help-section-title">Matrix / Rating Curve Inputs <span class="help-badge hb-mat">matrix</span></div>
+  <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:8px">Used for <b>storageElevationCurve</b>, <b>dischargeElevationCurve</b> (reservoir), and <b>UH</b> (user-defined unit hydrograph). Each row is one point on the curve.</div>
+  ${[['+&nbsp;Row','Append a blank two-column row'],['⬆ CSV/TXT','Each file line with ≥ 2 numbers becomes one row; lines starting with # are skipped'],['× per row','Delete that individual row']].map(([k,v])=>`<div class="help-row"><span class="help-key">${k}</span><span class="help-val">${v}</span></div>`).join('')}
+</div>`,
+
+/* 3 — Connections */
+`<div class="help-section">
+  <div class="help-section-title">How to Connect Nodes</div>
+  <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:12px">
+    Press <span class="help-kbd">C</span> or click <b>Connect</b>. Click the <b>source</b> node (it highlights), then the <b>target</b> node. A dialog asks for the connection type. Each type maps to a specific constructor argument.
+  </div>
+</div>
+<div class="help-section">
+  <div class="help-section-title">Connection Types</div>
+  ${[['#00d4ff','downstream','Any node','Any node','Outflow from source routes to target. Maps to downstream= argument. Drawn as solid line. Target must be declared before source in the R script — the code generator handles this automatically.'],['#ff5722','divertTo','Diversion only','Any node','Diverted volume from the Diversion routes to this target. Maps to divertTo= argument. Drawn as dashed line. Diversion objects require both a downstream and a divertTo connection.']].map(([c,t,src,tgt,m])=>`<div class="conn-legend"><div class="conn-legend-dot" style="background:${c}"></div><div style="flex:1"><div style="font-size:12px;font-weight:500">${t}</div><div style="font-size:11px;color:var(--text2)">${m}</div></div><div style="font-size:10px;color:var(--text2);text-align:right;min-width:80px">${src}<br>→ ${tgt}</div></div>`).join('')}
+</div>
+<div class="help-section">
+  <div class="help-section-title">Deleting Connections</div>
+  <div style="font-size:12px;color:var(--text2);line-height:1.7">In the Properties panel, the <b>Connections</b> section lists all links for the selected node. <b>Click any row</b> to delete it — the row turns red on hover. The map line and arrow are removed immediately.</div>
+</div>`,
+
+/* 4 — R Code */
+`<div class="help-section">
+  <div class="help-section-title">Generated Script Structure</div>
+  ${[['library(RHMS)','Package import'],['simulation <- list(...)','Simulation period: start, end dates and by (seconds)'],['Constructors','One createXxx() block per node, in topological order (downstream-first). Objects referenced as downstream= or divertTo= are always declared first.'],['geometry=list(...)','Reservoir geometry: storageElevationCurve, dischargeElevationCurve, and capacity combined into a list via data.frame() columns.'],['createBasin()','Top-level basin object created after all node constructors'],['addObjectToBasin()','Each node registered with the basin — same topological order'],['sim()','Runs the full rainfall-runoff simulation'],['plot() / summary()','Visualises hydrographs and prints volume/peak summaries'],['tune()','Commented particle swarm calibration template']].map(([k,v])=>`<div class="help-row"><span class="help-key" style="font-size:10px;min-width:160px">${k}</span><span class="help-val">${v}</span></div>`).join('')}
+</div>
+<div class="help-section">
+  <div class="help-section-title">Tips</div>
+  ${[['by= (seconds)','Set this carefully — it must match your precipitation data step. 3600=hourly, 7200=2h, 86400=daily.'],['Rating curves','Exported as data.frame(s=c(...),h=c(...)) with column names matching RHMS conventions.'],['Required fields','Required fields left blank emit 0. Fill capacity (reservoir), Area (subbasin), and capacity (diversion) before running.'],['Refresh','Switch to Code tab or click Refresh any time to regenerate from current canvas state.'],['Copy','Copies the full script to clipboard for pasting into RStudio or any R console.']].map(([k,v])=>`<div class="help-row"><span class="help-key">${k}</span><span class="help-val">${v}</span></div>`).join('')}
+</div>`,
+];
+
+function openHelp(idx=0){document.getElementById('help-modal').classList.add('open');helpTab(idx);}
+function closeHelp(e){if(!e||e.target===document.getElementById('help-modal'))document.getElementById('help-modal').classList.remove('open');}
+function helpTab(i){
+  _helpIdx=i;
+  for(let j=0;j<5;j++){const t=document.getElementById('htab-'+j);t.classList.toggle('active',j===i);}
+  document.getElementById('help-body').innerHTML=HELP_PAGES[i];
+}
+
+// ══════════════════════════════════════════════════
+// UI HELPERS
+// ══════════════════════════════════════════════════
+function setMode(m){
+  currentMode=m;connPendingSource=null;
+  document.getElementById('connect-overlay').style.display='none';
+  const hints={select:'Click node to select · Drag to move',subbasin:'Click to place Subbasin',reach:'Click to place Reach',reservoir:'Click to place Reservoir',junction:'Click to place Junction',diversion:'Click to place Diversion'};
+  const hint=document.getElementById('map-hint');hint.textContent=hints[m]||'';hint.classList.remove('hidden');
+  document.getElementById('status-mode').textContent=`Mode: ${m.toUpperCase()}`;
+  map.getContainer().style.cursor=m==='select'?'':'crosshair';
+  updateToolBtns();
+}
+function updateToolBtns(){
+  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
+  const a=document.getElementById(`tool-${currentMode}`);if(a)a.classList.add('active');
+  if(currentMode==='connect')document.getElementById('btn-connect').classList.add('active');
+}
+function switchTab(tab){
+  document.querySelectorAll('.panel-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  document.getElementById(`tab-content-${tab}`).classList.add('active');
+  if(tab==='code')generateCode();
+}
+function updateStatus(){
+  document.getElementById('status-nodes').textContent=nodes.length;
+  document.getElementById('status-conns').textContent=connections.length;
+  document.getElementById('tab-nodes').textContent=`Nodes(${nodes.length})`;
+}
+
+map.on('click',()=>{
+  if(currentMode==='select'&&selectedNode){
+    selectedNode.marker.setIcon(mkIcon(selectedNode.type));selectedNode=null;
+    document.getElementById('props-content').style.display='none';
+    document.getElementById('props-empty').style.display='';
+    setDelBtnState(false);updateNodesList();
+  }
+});
+
+document.addEventListener('keydown',e=>{
+  if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return;
+  const k={v:'select',b:'subbasin',r:'reach',s:'reservoir',j:'junction',d:'diversion'};
+  if(e.key==='c'||e.key==='C'){setConnectMode();return;}
+  if(k[e.key])setMode(k[e.key]);
+  if(e.key==='Escape')setMode('select');
+  if((e.key==='Delete'||e.key==='Backspace')&&selectedNode)deleteNode(selectedNode);
+});
+
+setMode('select');updateStatus();updateNodesList();
+
+// ══════════════════════════════════════════════════
+// JSON IMPORT ENGINE
+// ══════════════════════════════════════════════════
+let _importPending=null;
+
+function importJSON(evt){
+  const file=evt.target.files[0];evt.target.value='';if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    let data;try{data=JSON.parse(e.target.result);}catch(err){alert('Invalid JSON: '+err.message);return;}
+    _importPending=data;showImportPreview(data);
+  };
+  reader.readAsText(file);
+}
+
+function normName(s){return s?String(s).toLowerCase().trim():'';}
+
+function showImportPreview(data){
+  const op=data.operation||data;
+  const counts={
+    subbasins:  (op.subbasins  ||[]).length,
+    reaches:    (op.reaches    ||[]).length,
+    reservoirs: (op.reservoirs ||[]).length,
+    junctions:  (op.junctions  ||[]).length,
+    diversions: (op.diversions ||[]).length,
+  };
+  const sim=op.simulation||{};
+  const total=Object.values(counts).reduce((a,b)=>a+b,0);
+  const allNodes=[...(op.subbasins||[]),...(op.reaches||[]),...(op.reservoirs||[]),...(op.junctions||[]),...(op.diversions||[])];
+  let connCount=0;
+  allNodes.forEach(n=>{const o=n.operation||n;if(o.downstream)connCount++;if(o.divertTo)connCount++;});
+  const warnings=[];
+  if(!sim.start)warnings.push('No simulation period found — defaults will be kept.');
+  if(total===0)warnings.push('No objects found in this JSON file.');
+  // Detect duplicate names and warn upfront
+  const nameCount={};
+  allNodes.forEach(n=>{const nm=normName((n.operation||n).name||'');if(nm)nameCount[nm]=(nameCount[nm]||0)+1;});
+  const dupNames=Object.entries(nameCount).filter(([,c])=>c>1).map(([n])=>n);
+  if(dupNames.length)warnings.push(`Duplicate node names detected (${dupNames.join(', ')}) — will be auto-renamed on import (e.g. "Junction 1 #2").`);
+  document.getElementById('import-summary').innerHTML=
+    `<b>Objects detected:</b><br>`+
+    Object.entries(counts).filter(([,v])=>v>0).map(([k,v])=>`  ${k}: <b style="color:var(--accent)">${v}</b>`).join('<br>')+
+    `<br><b>Connections:</b> <b style="color:var(--accent)">${connCount}</b><br>`+
+    (sim.start?`<b>Simulation:</b> ${sim.start} → ${sim.end} (by=${sim.by}s)`:'');
+  const warnEl=document.getElementById('import-warn');
+  if(warnings.length){warnEl.innerHTML='⚠ '+warnings.join('<br>⚠ ');warnEl.style.display='block';}
+  else warnEl.style.display='none';
+  document.getElementById('import-modal').classList.add('open');
+}
+
+function closeImportModal(){document.getElementById('import-modal').classList.remove('open');_importPending=null;}
+function confirmImport(){
+  document.getElementById('import-modal').classList.remove('open');
+  if(!_importPending)return;
+  try{doImport(_importPending);}catch(err){alert('Import error: '+err.message);}
+  _importPending=null;
+}
+
+function autoLayout(allDefs){
+  const originLat=36.0,originLng=44.0,LNG_STEP=2.4,LAT_STEP=1.8;
+  const N=allDefs.length;if(N===0)return{};
+  const names=allDefs.map(d=>normName(d.name));
+  const idx={};names.forEach((n,i)=>idx[n]=i);
+  const children=Array.from({length:N},()=>[]),parents=Array.from({length:N},()=>[]),edges=[];
+  function addEdge(fromName,toName){
+    const f=idx[normName(fromName)],t=idx[normName(toName)];
+    if(f===undefined||t===undefined||f===t)return;
+    if(!children[f].includes(t)){children[f].push(t);parents[t].push(f);edges.push({f,t});}
+  }
+  allDefs.forEach(d=>{if(d.downstream)addEdge(d.name,d.downstream);if(d.divertTo)addEdge(d.name,d.divertTo);});
+  const col=new Array(N).fill(0);let changed=true,guard=0;
+  while(changed&&guard++<N*3){changed=false;edges.forEach(({f,t})=>{if(col[t]<=col[f]){col[t]=col[f]+1;changed=true;}});}
+  const lane=new Array(N).fill(-1),colLanes={};let nextLane=0;
+  function claimLane(i,preferred){
+    const c=col[i];if(!colLanes[c])colLanes[c]=new Set();
+    for(let delta=0;delta<=N;delta++){for(const sign of(delta===0?[0]:[1,-1])){const attempt=preferred+delta*sign;if(attempt<0)continue;if(!colLanes[c].has(attempt)){colLanes[c].add(attempt);lane[i]=attempt;return attempt;}}}
+    colLanes[c].add(nextLane);lane[i]=nextLane;return nextLane++;
+  }
+  const inDeg=parents.map(p=>p.length),queue=[];
+  inDeg.forEach((d,i)=>{if(d===0)queue.push(i);});
+  let sourceIdx=0;queue.forEach(i=>claimLane(i,sourceIdx++));
+  let head=0;
+  while(head<queue.length){
+    const cur=queue[head++];
+    children[cur].forEach(child=>{inDeg[child]--;if(inDeg[child]===0)queue.push(child);});
+    children[cur].forEach((child,ci)=>{if(lane[child]!==-1)return;claimLane(child,ci===0?lane[cur]:lane[cur]+ci);});
+  }
+  allDefs.forEach((_,i)=>{if(lane[i]===-1)claimLane(i,nextLane++);});
+  const colLaneList={};
+  allDefs.forEach((_,i)=>{const c=col[i];if(!colLaneList[c])colLaneList[c]=[];colLaneList[c].push({i,lane:lane[i]});});
+  Object.values(colLaneList).forEach(arr=>{arr.sort((a,b)=>a.lane-b.lane);arr.forEach((entry,rank)=>{lane[entry.i]=rank;});});
+  const maxLane=Math.max(...lane);
+  const result={};
+  allDefs.forEach((d,i)=>{const lng=originLng+col[i]*LNG_STEP,lat=originLat+(maxLane/2-lane[i])*LAT_STEP;result[normName(d.name)]={lat,lng};});
+  return result;
+}
+
+function doImport(data){
+  connections.forEach(c=>{if(c.line)map.removeLayer(c.line);if(c.arrow)map.removeLayer(c.arrow);});
+  nodes.forEach(n=>map.removeLayer(n.marker));
+  Object.values(labelMarkers).forEach(m=>map.removeLayer(m));
+  nodes=[];connections=[];selectedNode=null;labelMarkers={};
+  nodeCounter={subbasin:0,reach:0,reservoir:0,junction:0,diversion:0};
+  document.getElementById('props-content').style.display='none';
+  document.getElementById('props-empty').style.display='';
+  setDelBtnState(false);
+
+  const op=data.operation||data,sim=op.simulation||{};
+  if(sim.start)document.getElementById('sim-start').value=sim.start;
+  if(sim.end)document.getElementById('sim-end').value=sim.end;
+  if(sim.by)document.getElementById('sim-by').value=sim.by;
+  const basinName=(op.name&&op.name!=='unknown')?op.name:'MyBasin';
+  document.getElementById('sim-name').value=basinName;
+
+  const subDefs=(op.subbasins||[]).map(x=>({type:'subbasin',...(x.operation||x)}));
+  const reDefs =(op.reaches   ||[]).map(x=>({type:'reach',    ...(x.operation||x)}));
+  const resDefs=(op.reservoirs||[]).map(x=>({type:'reservoir',...(x.operation||x)}));
+  const jDefs  =(op.junctions ||[]).map(x=>({type:'junction', ...(x.operation||x)}));
+  const dDefs  =(op.diversions||[]).map(x=>({type:'diversion',...(x.operation||x)}));
+  const allDefs=[...subDefs,...reDefs,...resDefs,...jDefs,...dDefs];
+
+  // ── Deduplicate node names ──────────────────────────────────────────────
+  // RHMS sometimes produces multiple nodes with the same name (e.g. two
+  // "Junction 1" entries). The nameToNode map is keyed by name so duplicates
+  // would silently overwrite each other and break connection wiring.
+  // Strategy: rename the 2nd+ occurrence to "Name #2", "Name #3" etc.
+  // References (downstream / divertTo) pointing to an original name are left
+  // as-is — they will resolve to the first node with that name, which is the
+  // safest deterministic behaviour. A console warning flags any renamed nodes.
+  (function deduplicateNames(){
+    const seen={};   // normName -> occurrence count
+    const renames=[]; // {oldNorm, newName} pairs accumulated for logging
+    allDefs.forEach(d=>{
+      const key=normName(d.name);
+      if(!seen[key]){seen[key]=1;return;}
+      seen[key]++;
+      const newName=`${d.name} #${seen[key]}`;
+      renames.push({from:d.name,to:newName});
+      d.name=newName;
+    });
+    if(renames.length){
+      console.warn('[RHMS Builder] Duplicate node names detected and auto-renamed:');
+      renames.forEach(r=>console.warn(`  "${r.from}" → "${r.to}"`));
+    }
+  })();
+
+  const positions=autoLayout(allDefs);
+  const nameToNode={};
+
+  function latLng(name){const key=normName(name);const pos=positions[key];return pos?L.latLng(pos.lat,pos.lng):L.latLng(36+Math.random(),47+Math.random());}
+
+  function addNode(type,props,latlng){
+    nodeCounter[type]++;
+    const id=`${TM[type].short}${nodeCounter[type]}`,varName=`${type}${nodeCounter[type]}`;
+    const node={id,varName,type,latlng,props:{...defProps(type,id),...props,name:props.name||id},marker:null,connections:[]};
+    const marker=L.marker([latlng.lat,latlng.lng],{icon:mkIcon(type),draggable:true}).addTo(map);
+    marker.on('click',e=>{L.DomEvent.stopPropagation(e);currentMode==='connect'?handleConnClick(node):selectNode(node);});
+    marker.on('dragend',()=>{node.latlng=marker.getLatLng();redrawConns(node);refreshLabel(node);});
+    marker.bindTooltip(`<b>${node.props.name||id}</b><br><span style="color:#8b949e;font-size:10px">${TM[type].label}</span>`,{direction:'top',className:'rhms-tooltip',offset:[0,-16]});
+    node.marker=marker;nodes.push(node);nameToNode[normName(props.name)]=node;showLabel(node);return node;
+  }
+
+  function parseTable(raw,c1Cands,c2Cands){
+    if(!raw)return[];
+    if(Array.isArray(raw))return raw.filter(r=>r&&r[0]!==null&&r[1]!==null);
+    if(typeof raw==='object'){
+      const keys=Object.keys(raw);
+      const k1=c1Cands.find(c=>keys.some(k=>k.toLowerCase()===c.toLowerCase()));
+      const k2=c2Cands.find(c=>keys.some(k=>k.toLowerCase()===c.toLowerCase()));
+      const ak1=k1?keys.find(k=>k.toLowerCase()===k1.toLowerCase()):null;
+      const ak2=k2?keys.find(k=>k.toLowerCase()===k2.toLowerCase()):null;
+      if(ak1&&ak2){const a1=raw[ak1],a2=raw[ak2];if(Array.isArray(a1)&&Array.isArray(a2))return a1.map((v,i)=>[v,a2[i]]).filter(r=>r[0]!==null&&r[1]!==null);}
+    }
+    return[];
+  }
+
+  // Place nodes
+  subDefs.forEach(d=>{
+    const tp=d.transformParams||{},lp=d.lossParams||{},bp=d.BFSParams||{},abs=d.abstractionParams||{};
+    addNode('subbasin',{
+      name:d.name,Area:d.Area??'',
+      precipitation:d.precipitation||[],inflow:d.inflow||[],
+      delayInflow:d.delayInflow??'',
+      transformMethod:d.transformMethod||'SCS',lossMethod:d.lossMethod||'SCS',BFSMethod:d.BFSMethod||'',
+      canopyAbstraction:abs.canopyAbstraction??'',surfaceAbstraction:abs.surfaceAbstraction??'',
+      Tlag:tp.Tlag??'',Cp:tp.Cp??'',Ct:tp.Ct??'',L:tp.L??'',Lc:tp.Lc??'',
+      UH:parseTable(d.UH,['t','time'],['q','flow']),
+      CN:lp.CN??'',imperviousness:lp.imperviousness??'',
+      f0:lp.f0??'',f1:lp.f1??'',k_horton:lp.k??'',timeIntervalHorton:lp.timeIntervalHorton??lp.timeInterval??'',
+      alpha:bp.alpha??'',BFI:bp.BFI??'',k_bfs:bp.k??'',timeIntervalBFS:bp.timeIntervalBFS??bp.timeInterval??'',
+    },latLng(d.name));
+  });
+  reDefs.forEach(d=>{
+    const rp=d.routingParams||{};
+    addNode('reach',{
+      name:d.name,routingMethod:d.routingMethod||'muskingum',
+      inflow:d.inflow||[],delayInflow:d.delayInflow??'',
+      k_musk:rp.k??'',x_musk:rp.x??'',
+      bedWidth:rp.bedWith??rp.bedWidth??'',sideSlope:rp.sideSlope??'',
+      channelSlope:rp.channelSlope??'',manningRoughness:rp.manningRoughness??'',riverLength:rp.riverLength??'',
+    },latLng(d.name));
+  });
+  resDefs.forEach(d=>{
+    const geo=d.geometry||{};
+    const sec=parseTable(geo.storageElevationCurve,['s','volume'],['h','elevation','elev']);
+    const dec=parseTable(geo.dischargeElevationCurve,['q','discharge'],['h','elevation','elev']);
+    addNode('reservoir',{
+      name:d.name,capacity:geo.capacity??geo.storage??'',
+      storageElevationCurve:sec,dischargeElevationCurve:dec,
+      initialStorage:d.initialStorage??'',inflow:d.inflow||[],delayInflow:d.delayInflow??'',
+    },latLng(d.name));
+  });
+  jDefs.forEach(d=>addNode('junction',{name:d.name,inflow:d.inflow||[],delayInflow:d.delayInflow??''},latLng(d.name)));
+  dDefs.forEach(d=>addNode('diversion',{name:d.name,capacity:d.capacity??''},latLng(d.name)));
+
+  // Wire connections
+  function findNode(name){if(!name)return null;const key=normName(name);if(nameToNode[key])return nameToNode[key];for(const[k,v]of Object.entries(nameToNode)){if(k.replace(/\s/g,'')===key.replace(/\s/g,''))return v;}return null;}
+  function wire(srcName,tgtName,type){
+    const src=findNode(srcName),tgt=findNode(tgtName);if(!src||!tgt)return;
+    if(connections.find(c=>c.from.id===src.id&&c.to.id===tgt.id&&c.type===type))return;
+    const clr=CC[type]||'#aaa';
+    const line=L.polyline([src.latlng,tgt.latlng],{color:clr,weight:2.5,opacity:.85,dashArray:type==='downstream'?null:'6,4'}).addTo(map);
+    const arrow=mkArrow(src.latlng,tgt.latlng,clr);arrow.addTo(map);
+    const conn={id:Date.now()+Math.random(),from:src,to:tgt,type,line,arrow};
+    connections.push(conn);src.connections.push(conn);tgt.connections.push(conn);
+  }
+  allDefs.forEach(d=>{if(d.downstream)wire(d.name,d.downstream,'downstream');if(d.divertTo)wire(d.name,d.divertTo,'divertTo');});
+
+  if(nodes.length){const latlngs=nodes.map(n=>n.latlng);map.fitBounds(L.latLngBounds(latlngs).pad(0.25));}
+  updateStatus();updateNodesList();
+  if(labelsVisible)nodes.forEach(n=>showLabel(n));
+}
+</script>
+</body>
+</html>
