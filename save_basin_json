@@ -1,127 +1,247 @@
-#' Save a WRSS Basin Object to a JSON File
+#' Save an RHMS Basin Object to a JSON File (for RHMS Builder GUI)
 #'
-#' This function serializes a WRSS (Water Resources Simulation System) \code{basin} object
-#' into a JSON file format. It handles nested lists, formulas, and references between components
-#' (e.g., reservoirs, rivers, junctions, demands, diversions, and aquifers), resolving numeric
-#' labels to object names for key reference fields.
+#' Serializes an RHMS \code{createBasin} object into a JSON file that can be
+#' directly imported into the RHMS Builder web interface. It resolves all
+#' internal numeric label cross-references (\code{downstream}, \code{divertTo})
+#' to human-readable component names, strips simulation output fields
+#' (\code{outflow}, all-zero lateral inflow series, \code{simulationSteps},
+#' \code{timeOfCreation}), and renames the internal \code{reachs} slot to
+#' \code{reaches} to match the GUI parser key.
 #'
-#' The JSON output is human-readable (pretty-printed), with automatic handling of NULLs and
-#' unboxing of single-element vectors. Reference fields that link to other components
-#' (e.g., downstream nodes, suppliers, seepage objects) are resolved from numeric labels
-#' to the component names to improve readability and maintain referential integrity.
-#'
-#' @param obj A \code{basin} object from the WRSS package, typically containing a
-#'        nested \code{operation} list with components like \code{reservoirs}, \code{rivers},
-#'        \code{junctions}, \code{demands}, \code{diversions}, and \code{aquifers}.
-#' @param file A character string specifying the file path where the JSON output will be saved.
+#' @param obj  An object of class \code{createBasin} from the RHMS package,
+#'   as returned by \code{createBasin()} or \code{sim()}.
+#' @param file A character string giving the output file path (e.g.
+#'   \code{"my_basin.json"}).
 #'
 #' @details
-#' The function performs the following steps internally:
+#' The function performs the following steps:
 #' \enumerate{
-#'   \item Constructs a label-to-name map for all components that have a numeric label and a name.
-#'   \item Defines a safe resolver function to convert numeric labels into their corresponding names
-#'         in reference fields.
-#'   \item Recursively sanitizes the basin object, removing functions, environments, and certain
-#'         internal attributes, while converting formulas and expressions to character.
-#'   \item Resolves key reference fields (\code{downstream}, \code{suppliers}, \code{seepageObject},
-#'         \code{leakageObject}, \code{divertObject}) from numeric labels to names.
-#'   \item Writes the sanitized object to a JSON file using \code{jsonlite::write_json} with
-#'         pretty formatting and null handling.
+#'   \item Builds a numeric-label-to-name lookup across all five component
+#'         types (reservoirs, reachs, junctions, subbasins, diversions).
+#'   \item Resolves \code{downstream} and \code{divertTo} fields from their
+#'         internal numeric labels to the corresponding component name strings.
+#'   \item Strips output-only fields: \code{outflow}, \code{label},
+#'         \code{simulationSteps}, and \code{timeOfCreation}.
+#'   \item Converts the \code{inflow} data.frame (column \code{lateralInflow})
+#'         to a plain numeric vector, omitting it entirely when all values are
+#'         zero (the common case for nodes with no direct lateral inflow).
+#'   \item Converts the \code{precipitation} numeric vector to a JSON array.
+#'   \item Converts reservoir rating-curve data.frames to named-array objects
+#'         (\code{\{"s":[...],"h":[...]\}}) matching the GUI matrix widget format.
+#'   \item Normalises \code{BFSMethod = "none"} to \code{""} so the GUI
+#'         renders the "no baseflow" option correctly.
+#'   \item Renames \code{reachs} to \code{reaches} in the output object.
+#'   \item Writes a pretty-printed JSON file via \code{jsonlite::write_json}.
 #' }
 #'
-#' @return Invisibly returns \code{NULL}. The main output is the JSON file written to disk.
+#' @return Invisibly returns \code{NULL}. The main side-effect is the JSON
+#'   file written to \code{file}.
 #'
 #' @examples
 #' \dontrun{
-#' # Save a WRSS basin object to a JSON file
-#' basin_obj <- wrss_load_basin("example_basin.wrss")
-#' save_basin_json(basin_obj, "basin_output.json")
+#' # After building and optionally simulating a basin:
+#' save_basin_json(ZaabRB, "zaab.json")
+#' # Then open RHMS Builder and use Import JSON to load it.
 #' }
 #'
-#' @seealso \code{\link[jsonlite]{write_json}}, \code{\link[WRSS]{basin}}
+#' @seealso \code{\link[jsonlite]{write_json}}, \code{\link[RHMS]{createBasin}}
 #'
 #' @export
 save_basin_json <- function(obj, file) {
-  
-  # --- Helper: consistent float -> string key ---
-  label_key <- function(x) formatC(x, digits = 6, format = "f")
-  
-  # --- Fields to resolve from numeric label -> object name ---
-  REFERENCE_FIELDS <- c(
-    "downstream",
-    "suppliers",
-    "seepageObject",
-    "leakageObject",
-    "divertObject"
-  )
-  
-  # --- Step 1: Build label -> name lookup ---
-  op <- obj$operation
-  label_map <- list()
-  
-  for (component_type in c("reservoirs", "rivers", "junctions",
-                            "demands", "diversions", "aquifers")) {
-    items <- op[[component_type]]
-    if (length(items) == 0) next
-    for (item in items) {
-      o <- item$operation
-      if (!is.null(o$label) && !is.null(o$name) && is.numeric(o$label)) {
-        label_map[[label_key(o$label)]] <- o$name
-      }
+    
+    # ── 0. Validate ──────────────────────────────────────────────────────────
+    if (!inherits(obj, "createBasin")) {
+        stop("`obj` must be of class 'createBasin' from the RHMS package.")
     }
-  }
-  
-  message("Label map: ", length(label_map), " entries")
-  for (k in names(label_map)) message("  ", k, " -> ", label_map[[k]])
-  
-  # --- Step 2: Safe label resolver ---
-  resolve_label <- function(val) {
-    if (!is.numeric(val) || length(val) != 1 || is.na(val)) return(val)
-    key <- label_key(val)
-    if (key %in% names(label_map)) return(label_map[[key]])
-    return(val)
-  }
-  
-  # --- Step 3: Recursive sanitizer ---
-  sanitize <- function(x) {
+    if (!requireNamespace("jsonlite", quietly = TRUE)) {
+        stop("Package 'jsonlite' is required. Install it with install.packages('jsonlite').")
+    }
     
-    if (inherits(x, c("call", "name", "expression"))) return(as.character(x))
-    if (inherits(x, "formula"))                       return(deparse(x))
-    if (is.function(x) || is.environment(x))          return(NULL)
+    op <- obj$operation
     
-    if (is.list(x)) {
-      nms <- names(x)
-      attr(x, "class")        <- NULL
-      attr(x, ".Environment") <- NULL
-      
-      x        <- lapply(x, sanitize)
-      names(x) <- nms
-      
-      # Resolve reference fields
-      for (field in REFERENCE_FIELDS) {
-        if (!field %in% names(x) || is.null(x[[field]])) next
-        val <- x[[field]]
-        x[[field]] <- if (is.numeric(val) && length(val) > 1) {
-          sapply(val, resolve_label, USE.NAMES = FALSE)  # vector (e.g. suppliers)
-        } else {
-          resolve_label(val)                              # scalar
+    # ── 1. Null-coalescing operator ──────────────────────────────────────────
+    `%||%` <- function(a, b) if (!is.null(a)) a else b
+    
+    # ── 2. Consistent numeric -> string key (avoids float mismatch) ──────────
+    label_key <- function(x) formatC(x, digits = 6, format = "f")
+    
+    # ── 3. Build label -> name lookup ────────────────────────────────────────
+    # RHMS stores a unique numeric `label` on every component as a cross-ref ID.
+    # We handle the internal typo "reachs" transparently.
+    COMPONENT_SLOTS <- c("reservoirs", "reachs", "reaches",
+                         "junctions", "subbasins", "diversions")
+    label_map <- list()
+    
+    for (slot in COMPONENT_SLOTS) {
+        items <- op[[slot]]
+        if (!length(items)) next
+        for (item in items) {
+            nm  <- item[["name"]]
+            lbl <- item[["label"]]
+            if (!is.null(lbl) && !is.null(nm) &&
+                is.numeric(lbl) && length(lbl) == 1 && !is.na(lbl)) {
+                label_map[[label_key(lbl)]] <- nm
+            }
         }
-      }
-      
-      return(x)
     }
     
-    return(x)
-  }
-  
-  # --- Step 4: Clean and write ---
-  jsonlite::write_json(
-    sanitize(obj),
-    path       = file,
-    pretty     = TRUE,
-    auto_unbox = TRUE,
-    null       = "null"
-  )
-  
-  message("Saved to: ", file)
+    message("Label map: ", length(label_map), " entries")
+    for (k in names(label_map)) message("  ", k, " -> ", label_map[[k]])
+    
+    # ── 4. Numeric label resolver ────────────────────────────────────────────
+    resolve_label <- function(val) {
+        if (is.null(val))                             return(NULL)
+        if (length(val) == 1 && is.na(val))           return(NULL)
+        if (!is.numeric(val) || length(val) != 1)     return(val)
+        key <- label_key(val)
+        if (key %in% names(label_map))                return(label_map[[key]])
+        warning("Label ", val, " not found in label_map — leaving as numeric.")
+        return(val)
+    }
+    
+    # ── 5. inflow data.frame -> plain vector (NULL when all-zero) ────────────
+    # RHMS stores lateral inflow as a data.frame with one column "lateralInflow".
+    # These are almost always all-zero unless the user explicitly provided inflow.
+    inflow_vec <- function(df) {
+        if (is.null(df) || !is.data.frame(df))   return(NULL)
+        col <- df[["lateralInflow"]]
+        if (is.null(col))                         return(NULL)
+        if (all(col == 0, na.rm = TRUE))          return(NULL)   # omit zero series
+        as.list(as.numeric(col))
+    }
+    
+    # ── 6. data.frame -> named list of numeric arrays (rating curves) ─────────
+    # Produces {"s":[...],"h":[...]} or {"q":[...],"h":[...]} in JSON.
+    df_to_arrays <- function(df) {
+        if (is.null(df) || !is.data.frame(df) || nrow(df) == 0) return(NULL)
+        lapply(df, function(col) as.list(as.numeric(col)))
+    }
+    
+    # ── 7. Component cleaners ─────────────────────────────────────────────────
+    
+    clean_reservoir <- function(x) {
+        geo <- x$geometry %||% list()
+        list(
+            name            = x$name,
+            initialStorage  = x$initialStorage %||% NULL,
+            delayInflow     = x$delayInflow    %||% NULL,
+            downstream      = resolve_label(x$downstream),
+            inflow          = inflow_vec(x$inflow),
+            geometry        = list(
+                capacity                = geo$capacity,
+                storageElevationCurve   = df_to_arrays(geo$storageElevationCurve),
+                dischargeElevationCurve = df_to_arrays(geo$dischargeElevationCurve)
+            )
+        )
+    }
+    
+    clean_reach <- function(x) {
+        # routingParams may contain NULLs for unused method's params — strip them
+        rp <- Filter(Negate(is.null), x$routingParams %||% list())
+        list(
+            name          = x$name,
+            routingMethod = x$routingMethod %||% "muskingum",
+            delayInflow   = x$delayInflow   %||% NULL,
+            downstream    = resolve_label(x$downstream),
+            inflow        = inflow_vec(x$inflow),
+            routingParams = rp
+        )
+    }
+    
+    clean_junction <- function(x) {
+        list(
+            name        = x$name,
+            delayInflow = x$delayInflow %||% NULL,
+            downstream  = resolve_label(x$downstream),
+            inflow      = inflow_vec(x$inflow)
+        )
+    }
+    
+    clean_subbasin <- function(x) {
+        # Normalise BFSMethod
+        bfs <- x$BFSMethod %||% ""
+        if (identical(bfs, "none")) bfs <- ""
+        
+        # BFSParams: drop NULLs; emit NULL if nothing meaningful remains
+        bp_raw <- x$BFSParams %||% list()
+        bp     <- Filter(Negate(is.null), bp_raw)
+        bp_out <- if (length(bp)) bp else NULL
+        
+        # abstractionParams: drop if both canopy and surface are zero
+        abs_raw <- x$abstractionParams %||% list()
+        abs_out <- if (length(abs_raw) && any(unlist(abs_raw) != 0, na.rm = TRUE)) {
+            abs_raw
+        } else {
+            NULL
+        }
+        
+        # UH: only include if it's an actual data.frame (not NA / NULL)
+        uh_out <- if (is.data.frame(x$UH)) df_to_arrays(x$UH) else NULL
+        
+        list(
+            name              = x$name,
+            Area              = x$Area,
+            delayInflow       = x$delayInflow %||% NULL,
+            downstream        = resolve_label(x$downstream),
+            precipitation     = as.list(as.numeric(x$precipitation %||% numeric(0))),
+            inflow            = inflow_vec(x$inflow),
+            transformMethod   = x$transformMethod %||% "SCS",
+            lossMethod        = x$lossMethod      %||% "SCS",
+            BFSMethod         = bfs,
+            transformParams   = x$transformParams  %||% list(),
+            lossParams        = x$lossParams       %||% list(),
+            BFSParams         = bp_out,
+            abstractionParams = abs_out,
+            UH                = uh_out
+        )
+    }
+    
+    clean_diversion <- function(x) {
+        list(
+            name       = x$name,
+            capacity   = x$capacity,
+            downstream = resolve_label(x$downstream),
+            divertTo   = resolve_label(x$divertTo),
+            inflow     = inflow_vec(x$inflow)
+        )
+    }
+    
+    # ── 8. Strip simulation internals ────────────────────────────────────────
+    sim_raw <- op$simulation %||% list()
+    simulation_out <- list(
+        start = sim_raw$start,
+        end   = sim_raw$end,
+        by    = sim_raw$by
+        # simulationSteps (POSIXct) intentionally omitted — not needed by GUI
+    )
+    
+    # ── 9. Assemble final output object ──────────────────────────────────────
+    # Use op$reachs (RHMS internal key) but emit as "reaches" (GUI parser key).
+    out <- list(
+        name       = op$name %||% "unknown",
+        simulation = simulation_out,
+        reservoirs = lapply(op$reservoirs            %||% list(), clean_reservoir),
+        reaches    = lapply(op$reachs                %||% list(), clean_reach),
+        junctions  = lapply(op$junctions             %||% list(), clean_junction),
+        subbasins  = lapply(op$subbasins             %||% list(), clean_subbasin),
+        diversions = lapply(op$diversions            %||% list(), clean_diversion)
+    )
+    
+    # ── 10. Write JSON ────────────────────────────────────────────────────────
+    jsonlite::write_json(
+        out,
+        path       = file,
+        pretty     = TRUE,
+        auto_unbox = TRUE,
+        null       = "null"
+    )
+    
+    message("Saved RHMS basin '", out$name, "' -> ", file)
+    message("  reservoirs : ", length(out$reservoirs))
+    message("  reaches    : ", length(out$reaches))
+    message("  junctions  : ", length(out$junctions))
+    message("  subbasins  : ", length(out$subbasins))
+    message("  diversions : ", length(out$diversions))
+    
+    invisible(NULL)
 }
